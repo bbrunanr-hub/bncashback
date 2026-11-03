@@ -3,7 +3,8 @@ import { Toaster, toast } from 'sonner'
 import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
   Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
-  Shield, ArrowLeft, DollarSign, Lock, Send
+  Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
+  Share2, Download, Trash2, Edit3, Gift
 } from 'lucide-react'
 import './index.css'
 
@@ -103,6 +104,16 @@ function detectCategory(url: string): CategoryCommission {
   return CATEGORIES.general
 }
 
+export interface UserProfile {
+  id: string
+  name: string
+  whatsapp: string         // Formato (XX) XXXXX-XXXX
+  cleanWhatsapp: string    // Somente números para link wa.me
+  email?: string
+  referralCode: string     // Código para indicar 10 amigos
+  createdAt: string
+}
+
 export interface Purchase {
   id: string
   platform: Platform
@@ -118,17 +129,40 @@ export interface Purchase {
   categoryIcon: string
   status: 'pending' | 'approved'
   date: string
+  userName?: string
+  userWhatsapp?: string
 }
 
 export interface WithdrawalRequest {
   id: string
   userName: string
+  userWhatsapp?: string
   pixKey: string
   pixType: 'cpf' | 'email' | 'phone' | 'random'
   amount: number
   status: 'pending' | 'paid' | 'rejected'
   createdAt: string
   paidAt?: string
+}
+
+// ---- Funções Utilitárias de Telefone e Indicação ----
+export function formatWhatsapp(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`
+}
+
+export function cleanPhoneDigits(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+export function generateReferralCode(name: string): string {
+  const cleanName = name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() || 'BN'
+  const randomNum = Math.floor(1000 + Math.random() * 9000)
+  return `${cleanName}${randomNum}`
 }
 
 // ---- Affiliate Link Generator ----
@@ -209,8 +243,142 @@ function ShopeeIcon() {
   )
 }
 
+// ---- Modal de Cadastro & WhatsApp ----
+interface UserRegisterModalProps {
+  isOpen: boolean
+  onClose: () => void
+  currentUser: UserProfile | null
+  onSave: (user: UserProfile) => void
+}
+
+function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegisterModalProps) {
+  const [name, setName] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [email, setEmail] = useState('')
+
+  useEffect(() => {
+    if (currentUser) {
+      setName(currentUser.name)
+      setWhatsapp(currentUser.whatsapp)
+      setEmail(currentUser.email || '')
+    } else {
+      setName('')
+      setWhatsapp('')
+      setEmail('')
+    }
+  }, [currentUser, isOpen])
+
+  if (!isOpen) return null
+
+  const handleSave = () => {
+    if (!name.trim() || name.trim().length < 2) {
+      toast.error('Por favor, informe seu nome completo')
+      return
+    }
+    const cleanPhone = cleanPhoneDigits(whatsapp)
+    if (cleanPhone.length < 10) {
+      toast.error('Informe um WhatsApp válido com DDD (Ex: 11 98765-4321)')
+      return
+    }
+
+    const referralCode = currentUser?.referralCode || generateReferralCode(name)
+    const user: UserProfile = {
+      id: currentUser?.id || crypto.randomUUID(),
+      name: name.trim(),
+      whatsapp: formatWhatsapp(whatsapp),
+      cleanWhatsapp: cleanPhone,
+      email: email.trim() || undefined,
+      referralCode,
+      createdAt: currentUser?.createdAt || new Date().toLocaleDateString('pt-BR')
+    }
+
+    onSave(user)
+    toast.success('Cadastro salvo com sucesso! 🎉')
+    onClose()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">
+            <User size={18} color="var(--primary)" />
+            {currentUser ? 'Editar Meu Perfil' : 'Cadastre-se no BNcashback'}
+          </div>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Banner do Programa 10 amigos */}
+        <div className="referral-invite-card">
+          <div className="ric-icon">🎁</div>
+          <div className="ric-content">
+            <div className="ric-title">Programa Indique 10 Amigos</div>
+            <div className="ric-desc">
+              Cadastre seu WhatsApp para acompanhar seu saldo. Ao indicar <strong>10 amigos</strong>, nossa equipe entra em contato pelo WhatsApp com <strong>vantagens e bônus exclusivos</strong>!
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-body">
+          <label className="form-label">Nome Completo *</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Ex: Maria Eduarda Silva"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+
+          <label className="form-label">
+            WhatsApp (com DDD) *
+            <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginLeft: 6 }}>
+              🟢 Contato para liberação de bônus
+            </span>
+          </label>
+          <input
+            type="tel"
+            className="form-input"
+            placeholder="(11) 98765-4321"
+            value={whatsapp}
+            onChange={e => setWhatsapp(formatWhatsapp(e.target.value))}
+            maxLength={15}
+          />
+
+          <label className="form-label">E-mail (opcional)</label>
+          <input
+            type="email"
+            className="form-input"
+            placeholder="seuemail@exemplo.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+
+          <div className="modal-hint">
+            🔒 Seus dados ficam protegidos e são utilizados apenas para entrega do seu cashback e atendimento personalizado.
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="modal-cancel-btn" onClick={onClose}>
+            {currentUser ? 'Cancelar' : 'Depois'}
+          </button>
+          <button className="modal-confirm-btn" onClick={handleSave}>
+            {currentUser ? 'Salvar Alterações' : 'Concluir Cadastro 🚀'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---- Home Page ----
-function HomePage() {
+function HomePage({
+  currentUser,
+  onOpenRegister
+}: {
+  currentUser: UserProfile | null
+  onOpenRegister: () => void
+}) {
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
   const [processState, setProcessState] = useState<ProcessState>('idle')
@@ -309,7 +477,9 @@ function HomePage() {
       categoryName: category.name,
       categoryIcon: category.icon,
       status: 'pending',
-      date: new Date().toLocaleDateString('pt-BR')
+      date: new Date().toLocaleDateString('pt-BR'),
+      userName: currentUser?.name,
+      userWhatsapp: currentUser?.whatsapp,
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
@@ -334,6 +504,36 @@ function HomePage() {
 
   return (
     <div className="page">
+      {/* Banner de Indicação & WhatsApp */}
+      {!currentUser ? (
+        <div className="referral-top-banner" onClick={onOpenRegister}>
+          <div className="rtb-icon">🎁</div>
+          <div className="rtb-content">
+            <div className="rtb-title">Cadastre seu WhatsApp & Ganhe Vantagens!</div>
+            <div className="rtb-sub">Indique 10 amigos para ganhar <strong>bônus exclusivos</strong> no seu cashback. <u>Toque para cadastrar ➔</u></div>
+          </div>
+        </div>
+      ) : (
+        <div className="referral-user-badge">
+          <div className="rub-left">
+            <span className="rub-avatar">{currentUser.name.charAt(0).toUpperCase()}</span>
+            <div className="rub-info">
+              <span className="rub-greeting">Olá, <strong>{currentUser.name.split(' ')[0]}</strong>!</span>
+              <span className="rub-code">Cód: {currentUser.referralCode}</span>
+            </div>
+          </div>
+          <button
+            className="rub-share-btn"
+            onClick={() => {
+              const msg = `Oi! Estou usando o BNcashback para receber dinheiro de volta nas minhas compras do Mercado Livre e Shopee! 💰 Dá uma olhada e usa meu código ${currentUser.referralCode} ou acessa: ${window.location.origin}`
+              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+            }}
+            title="Convidar amigos no WhatsApp"
+          >
+            <Share2 size={13} /> Indicar 10 Amigos
+          </button>
+        </div>
+      )}
       {/* Platform Selector */}
       <div className="platform-tabs">
         <button
@@ -554,11 +754,17 @@ function PurchasesPage() {
 }
 
 // ---- Balance Page ----
-function BalancePage() {
+function BalancePage({
+  currentUser,
+  onOpenRegister
+}: {
+  currentUser: UserProfile | null
+  onOpenRegister: () => void
+}) {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
-  const [pixName, setPixName] = useState('')
+  const [pixName, setPixName] = useState(currentUser?.name || '')
   const [pixKey, setPixKey] = useState('')
   const [pixType, setPixType] = useState<'cpf' | 'email' | 'phone' | 'random'>('cpf')
   const [withdrawAmount, setWithdrawAmount] = useState('')
@@ -569,6 +775,12 @@ function BalancePage() {
     setPurchases(data)
     setWithdrawals(wData)
   }, [])
+
+  useEffect(() => {
+    if (currentUser?.name && !pixName) {
+      setPixName(currentUser.name)
+    }
+  }, [currentUser])
 
   const totalPending = purchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
   const totalApproved = purchases.filter(p => p.status === 'approved').reduce((a, p) => a + p.cashback, 0)
@@ -596,6 +808,7 @@ function BalancePage() {
     const newRequest: WithdrawalRequest = {
       id: crypto.randomUUID(),
       userName: pixName.trim(),
+      userWhatsapp: currentUser?.whatsapp,
       pixKey: pixKey.trim(),
       pixType,
       amount: amountNum,
@@ -627,6 +840,7 @@ function BalancePage() {
         className="withdraw-btn"
         onClick={() => {
           setWithdrawAmount(totalAll > 0 ? totalAll.toFixed(2).replace('.', ',') : '10,00')
+          if (currentUser?.name) setPixName(currentUser.name)
           setIsWithdrawModalOpen(true)
         }}
       >
@@ -676,6 +890,16 @@ function BalancePage() {
                 onChange={e => setPixKey(e.target.value)}
               />
 
+              {pixType === 'phone' && currentUser?.whatsapp && (
+                <button
+                  type="button"
+                  className="quick-fill-btn"
+                  onClick={() => setPixKey(currentUser.whatsapp)}
+                >
+                  <Phone size={12} color="#16a34a" /> Usar meu WhatsApp: {currentUser.whatsapp}
+                </button>
+              )}
+
               <label className="form-label">Valor do Saque (R$)</label>
               <input
                 type="text"
@@ -684,6 +908,12 @@ function BalancePage() {
                 value={withdrawAmount}
                 onChange={e => setWithdrawAmount(e.target.value)}
               />
+
+              {!currentUser && (
+                <div className="modal-hint" style={{ background: '#FFFBEB', borderColor: '#FDE68A', color: '#92400E' }}>
+                  🎁 <strong>Dica:</strong> <span style={{ textDecoration: 'underline', cursor: 'pointer', fontWeight: 800 }} onClick={() => { setIsWithdrawModalOpen(false); onOpenRegister(); }}>Cadastre seu WhatsApp</span> para liberar o Programa 10 Amigos e ganhar bônus nos seus saques!
+                </div>
+              )}
 
               <div className="modal-hint">
                 💡 O valor solicitado será analisado e enviado para a sua chave PIX assim que liberado.
@@ -740,7 +970,15 @@ function BalancePage() {
 }
 
 // ---- Settings Page ----
-function SettingsPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
+function SettingsPage({
+  currentUser,
+  onOpenRegister,
+  onOpenAdmin
+}: {
+  currentUser: UserProfile | null
+  onOpenRegister: () => void
+  onOpenAdmin: () => void
+}) {
   const handleClearData = () => {
     if (confirm('Deseja apagar todo o histórico de compras? Esta ação não pode ser desfeita.')) {
       localStorage.removeItem('bn_purchases')
@@ -754,15 +992,15 @@ function SettingsPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       icon: <Shield size={20} color="#EA580C" />,
       bg: '#FFF7ED',
       label: 'Painel da Administradora',
-      sub: 'Gestão de saques PIX, comissões e métricas',
+      sub: 'Gestão de saques PIX, comissões e lista de contatos WhatsApp',
       action: onOpenAdmin
     },
     {
       icon: <User size={20} color="#3B82F6" />,
       bg: '#EFF6FF',
-      label: 'Minha Conta',
-      sub: 'Gerenciar perfil e dados pessoais',
-      action: () => toast.info('Em breve!')
+      label: 'Minha Conta & WhatsApp',
+      sub: currentUser ? `${currentUser.name} • ${currentUser.whatsapp}` : 'Cadastrar WhatsApp para receber bônus',
+      action: onOpenRegister
     },
     {
       icon: <Key size={20} color="#8B5CF6" />,
@@ -796,8 +1034,66 @@ function SettingsPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
   return (
     <div className="page">
-      <div className="section-title">Configurações</div>
-      <div className="section-subtitle">Gerencie sua conta e preferências</div>
+      <div className="section-title">Configurações & Perfil</div>
+      <div className="section-subtitle">Gerencie sua conta e programa de vantagens</div>
+
+      {/* Cartão de Perfil / Cadastro de WhatsApp */}
+      {currentUser ? (
+        <div className="profile-hero-card">
+          <div className="phc-header">
+            <div className="phc-avatar">{currentUser.name.charAt(0).toUpperCase()}</div>
+            <div className="phc-info">
+              <div className="phc-name">{currentUser.name}</div>
+              <div className="phc-phone">
+                <Phone size={13} color="#16a34a" /> {currentUser.whatsapp}
+              </div>
+              {currentUser.email && <div className="phc-email">{currentUser.email}</div>}
+            </div>
+            <button className="phc-edit-btn" onClick={onOpenRegister} title="Editar Cadastro">
+              <Edit3 size={15} />
+            </button>
+          </div>
+
+          {/* Caixa do Programa 10 amigos */}
+          <div className="referral-box">
+            <div className="ref-top">
+              <div className="ref-title">
+                <Gift size={16} color="var(--primary)" />
+                <span>Programa Indique 10 Amigos</span>
+              </div>
+              <span className="ref-badge">Ativo 🔥</span>
+            </div>
+
+            <div className="ref-desc">
+              Ao indicar <strong>10 amigos</strong> para usar o app, a administradora libera <strong>vantagens e bônus no seu cashback</strong>!
+            </div>
+
+            <div className="ref-code-wrap">
+              <div className="ref-code-label">Seu Código de Indicação:</div>
+              <div className="ref-code-val">{currentUser.referralCode}</div>
+            </div>
+
+            <button
+              className="wa-share-btn"
+              onClick={() => {
+                const shareMsg = `Oi! Estou usando o BNcashback para receber cashback de volta em compras no Mercado Livre e Shopee! 💰 Dá uma olhada e usa meu código ${currentUser.referralCode}: ${window.location.origin}`
+                window.open(`https://wa.me/?text=${encodeURIComponent(shareMsg)}`, '_blank')
+              }}
+            >
+              <MessageCircle size={17} /> Convidar 10 Amigos no WhatsApp
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="profile-hero-card guest" onClick={onOpenRegister}>
+          <div className="phc-guest-icon">👤</div>
+          <div className="phc-guest-text">
+            <div className="phc-guest-title">Cadastre seu WhatsApp</div>
+            <div className="phc-guest-sub">Receba vantagens exclusivas e participe do Programa 10 Amigos!</div>
+          </div>
+          <button className="phc-guest-btn">Cadastrar</button>
+        </div>
+      )}
 
       <div className="settings-section">
         {items.map((item, i) => (
@@ -828,15 +1124,19 @@ function AdminPage({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState('')
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
-  const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'automation'>('withdrawals')
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'users' | 'automation'>('withdrawals')
 
   useEffect(() => {
     const isAuth = sessionStorage.getItem('bn_admin_auth') === 'true'
     if (isAuth) setIsAuthenticated(true)
     const p = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const w = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
+    const u = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
     setPurchases(p)
     setWithdrawals(w)
+    setAllUsers(u)
   }, [])
 
   const handleLogin = () => {
@@ -891,6 +1191,48 @@ function AdminPage({ onBack }: { onBack: () => void }) {
     toast.success(`${label} copiado!`)
   }
 
+  const copyAllWhatsapps = () => {
+    if (allUsers.length === 0) {
+      toast.error('Nenhum usuário cadastrado ainda!')
+      return
+    }
+    const cleanList = allUsers.map(u => `55${u.cleanWhatsapp}`).join(', ')
+    navigator.clipboard.writeText(cleanList)
+    toast.success(`${allUsers.length} contatos de WhatsApp copiados! Prontos para Lista de Transmissão.`)
+  }
+
+  const downloadUsersCSV = () => {
+    if (allUsers.length === 0) {
+      toast.error('Nenhum usuário cadastrado ainda!')
+      return
+    }
+    const headers = 'Nome;WhatsApp;E-mail;Data de Cadastro;Código de Indicação\n'
+    const rows = allUsers.map(u => `"${u.name}";"${u.whatsapp}";"${u.email || ''}";"${u.createdAt}";"${u.referralCode}"`).join('\n')
+    const blob = new Blob(['\uFEFF' + headers + rows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `usuarios-bncashback-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Planilha CSV de contatos gerada com sucesso! 📊')
+  }
+
+  const handleDeleteUser = (id: string, name: string) => {
+    if (confirm(`Deseja remover o usuário "${name}" da lista?`)) {
+      const updated = allUsers.filter(u => u.id !== id)
+      setAllUsers(updated)
+      localStorage.setItem('bn_all_users', JSON.stringify(updated))
+      toast.success('Usuário removido da lista!')
+    }
+  }
+
+  const filteredUsers = allUsers.filter(u =>
+    u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.whatsapp.includes(userSearch) ||
+    u.referralCode.toLowerCase().includes(userSearch.toLowerCase())
+  )
+
   // Tela de Login com Senha / PIN
   if (!isAuthenticated) {
     return (
@@ -905,7 +1247,7 @@ function AdminPage({ onBack }: { onBack: () => void }) {
           </div>
           <div className="admin-login-title">Painel da Administradora</div>
           <div className="admin-login-sub">
-            Área restrita para controle de comissões e pagamentos de saques via PIX.
+            Área restrita para controle de comissões, usuários WhatsApp e pagamentos de saques via PIX.
           </div>
 
           <div className="admin-login-form">
@@ -939,7 +1281,7 @@ function AdminPage({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="section-title">Painel Administrativo</div>
-      <div className="section-subtitle">Gestão de Lucro (65%), Cashback (35%) e Saques PIX</div>
+      <div className="section-subtitle">Gestão de Lucro (65%), Cashback (35%), WhatsApp e Saques PIX</div>
 
       {/* Grid de Métricas Financeiras */}
       <div className="admin-metrics-grid">
@@ -962,9 +1304,9 @@ function AdminPage({ onBack }: { onBack: () => void }) {
         </div>
 
         <div className="admin-metric-card purple">
-          <div className="am-label">💸 Total Pago via PIX</div>
-          <div className="am-value">{formatCurrency(totalPaid)}</div>
-          <div className="am-sub">Transferências concluídas</div>
+          <div className="am-label">👥 Contatos WhatsApp</div>
+          <div className="am-value">{allUsers.length}</div>
+          <div className="am-sub">Total pago via PIX: {formatCurrency(totalPaid)}</div>
         </div>
       </div>
 
@@ -974,22 +1316,29 @@ function AdminPage({ onBack }: { onBack: () => void }) {
           className={`platform-tab ${adminTab === 'withdrawals' ? 'active' : ''}`}
           onClick={() => setAdminTab('withdrawals')}
         >
-          <DollarSign size={16} />
+          <DollarSign size={15} />
           Saques PIX ({pendingList.length})
         </button>
         <button
           className={`platform-tab ${adminTab === 'commissions' ? 'active' : ''}`}
           onClick={() => setAdminTab('commissions')}
         >
-          <ShoppingBag size={16} />
+          <ShoppingBag size={15} />
           Vendas ({purchases.length})
+        </button>
+        <button
+          className={`platform-tab ${adminTab === 'users' ? 'active' : ''}`}
+          onClick={() => setAdminTab('users')}
+        >
+          <Users size={15} />
+          Usuários ({allUsers.length})
         </button>
         <button
           className={`platform-tab ${adminTab === 'automation' ? 'active' : ''}`}
           onClick={() => setAdminTab('automation')}
         >
-          <Zap size={16} />
-          Automação PIX
+          <Zap size={15} />
+          Automação
         </button>
       </div>
 
@@ -1042,6 +1391,23 @@ function AdminPage({ onBack }: { onBack: () => void }) {
                   </button>
                 </div>
 
+                {w.userWhatsapp && (
+                  <div className="ap-user-wa-row">
+                    <div className="ap-user-wa-info">
+                      <Phone size={13} color="#16a34a" />
+                      <span>WhatsApp: <strong>{w.userWhatsapp}</strong></span>
+                    </div>
+                    <a
+                      href={`https://wa.me/55${cleanPhoneDigits(w.userWhatsapp)}?text=${encodeURIComponent(`Olá ${w.userName}! Aqui é a Bruna do BNcashback 🎁 Seu pagamento de saque PIX no valor de ${formatCurrency(w.amount)} foi processado com sucesso! Muito obrigada por usar nosso app!`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="wa-pill-btn"
+                    >
+                      <MessageCircle size={13} /> Avisar no WhatsApp
+                    </a>
+                  </div>
+                )}
+
                 {w.status === 'pending' ? (
                   <button
                     className="pay-confirm-btn"
@@ -1084,6 +1450,12 @@ function AdminPage({ onBack }: { onBack: () => void }) {
                     {p.categoryIcon} {p.productName}
                   </div>
 
+                  {p.userName && (
+                    <div className="as-user-tag">
+                      👤 Gerado por: <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
+                    </div>
+                  )}
+
                   <div className="as-split-grid">
                     <div className="as-split-item gross">
                       <span className="as-s-label">Comissão Total (100%)</span>
@@ -1119,7 +1491,114 @@ function AdminPage({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* Conteúdo da Aba 3: Automação de Pagamentos */}
+      {/* Conteúdo da Aba 3: Usuários & WhatsApp */}
+      {adminTab === 'users' && (
+        <div className="admin-section">
+          {/* Top Banner de Estratégia de Crescimento */}
+          <div className="admin-growth-banner">
+            <div className="agb-icon">🚀</div>
+            <div className="agb-content">
+              <div className="agb-title">Programa Indique 10 Amigos</div>
+              <div className="agb-desc">
+                Envie mensagem para os usuários abaixo oferecendo <strong>vantagens exclusivas</strong> para quem indicar 10 amigos. O botão verde já abre o WhatsApp com a mensagem pronta!
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Ações Rápidas */}
+          <div className="admin-users-actions">
+            <button className="admin-act-btn" onClick={copyAllWhatsapps}>
+              <Copy size={15} /> Copiar Todos ({allUsers.length})
+            </button>
+            <button className="admin-act-btn secondary" onClick={downloadUsersCSV}>
+              <Download size={15} /> Baixar Planilha CSV
+            </button>
+          </div>
+
+          {/* Campo de Busca */}
+          <div className="admin-search-wrap">
+            <input
+              type="text"
+              className="admin-search-input"
+              placeholder="🔍 Buscar por nome, WhatsApp ou código..."
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Lista de Usuários */}
+          {filteredUsers.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">👥</div>
+              <div className="empty-state-title">
+                {allUsers.length === 0 ? 'Nenhum usuário cadastrado ainda' : 'Nenhum usuário encontrado'}
+              </div>
+              <div className="empty-state-text">
+                Assim que os usuários cadastrarem o WhatsApp no app, o contato aparecerá aqui com 1 clique para conversar no WhatsApp!
+              </div>
+            </div>
+          ) : (
+            filteredUsers.map(user => {
+              const inviteMsg = `Olá ${user.name}! Tudo bem? Aqui é a Bruna do BNcashback 🎁 Passando para te avisar de uma super oportunidade: quem indicar 10 amigos para usar o nosso app ganha vantagens e bônus no seu cashback! 🚀 Quer participar e receber seu link especial?`
+              const waLink = `https://wa.me/55${user.cleanWhatsapp}?text=${encodeURIComponent(inviteMsg)}`
+
+              return (
+                <div key={user.id} className="admin-user-card">
+                  <div className="auc-header">
+                    <div className="auc-user-main">
+                      <div className="auc-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                      <div>
+                        <div className="auc-name">{user.name}</div>
+                        <div className="auc-date">Cadastrado em {user.createdAt}</div>
+                      </div>
+                    </div>
+                    <span className="auc-ref-tag">Cód: {user.referralCode}</span>
+                  </div>
+
+                  <div className="auc-details">
+                    <div className="auc-row">
+                      <Phone size={14} color="#16a34a" />
+                      <span className="auc-phone">{user.whatsapp}</span>
+                      <button
+                        className="copy-mini-btn"
+                        onClick={() => copyText(user.whatsapp, 'WhatsApp')}
+                        title="Copiar número"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                    {user.email && (
+                      <div className="auc-row email">
+                        <span>✉️ {user.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="auc-actions">
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="auc-wa-btn"
+                    >
+                      <MessageCircle size={16} /> Chamar no WhatsApp (Oferecer Vantagem)
+                    </a>
+                    <button
+                      className="auc-delete-btn"
+                      onClick={() => handleDeleteUser(user.id, user.name)}
+                      title="Excluir usuário"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo da Aba 4: Automação de Pagamentos */}
       {adminTab === 'automation' && (
         <div className="admin-automation-card">
           <div className="aa-icon">⚡</div>
@@ -1152,6 +1631,31 @@ function AdminPage({ onBack }: { onBack: () => void }) {
 // ---- Main App ----
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home')
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('bn_current_user')
+    if (saved) {
+      try {
+        setCurrentUser(JSON.parse(saved))
+      } catch {}
+    }
+  }, [])
+
+  const handleSaveUser = (user: UserProfile) => {
+    setCurrentUser(user)
+    localStorage.setItem('bn_current_user', JSON.stringify(user))
+
+    const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const existingIndex = allUsers.findIndex(u => u.id === user.id || u.cleanWhatsapp === user.cleanWhatsapp)
+    if (existingIndex >= 0) {
+      allUsers[existingIndex] = user
+    } else {
+      allUsers.unshift(user)
+    }
+    localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
+  }
 
   const navItems = [
     { id: 'home' as Tab, icon: <Home size={22} />, label: 'Início' },
@@ -1187,10 +1691,26 @@ export default function App() {
 
         {/* Main Content */}
         <main className="main-content">
-          {activeTab === 'home' && <HomePage />}
+          {activeTab === 'home' && (
+            <HomePage
+              currentUser={currentUser}
+              onOpenRegister={() => setIsRegisterModalOpen(true)}
+            />
+          )}
           {activeTab === 'purchases' && <PurchasesPage />}
-          {activeTab === 'balance' && <BalancePage />}
-          {activeTab === 'settings' && <SettingsPage onOpenAdmin={() => setActiveTab('admin')} />}
+          {activeTab === 'balance' && (
+            <BalancePage
+              currentUser={currentUser}
+              onOpenRegister={() => setIsRegisterModalOpen(true)}
+            />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsPage
+              currentUser={currentUser}
+              onOpenRegister={() => setIsRegisterModalOpen(true)}
+              onOpenAdmin={() => setActiveTab('admin')}
+            />
+          )}
           {activeTab === 'admin' && <AdminPage onBack={() => setActiveTab('settings')} />}
         </main>
 
@@ -1207,6 +1727,14 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        {/* Modal de Cadastro de Usuário / WhatsApp */}
+        <UserRegisterModal
+          isOpen={isRegisterModalOpen}
+          onClose={() => setIsRegisterModalOpen(false)}
+          currentUser={currentUser}
+          onSave={handleSaveUser}
+        />
       </div>
     </>
   )
