@@ -342,7 +342,7 @@ function HomePage() {
       <div className="info-box">
         <div className="info-icon">i</div>
         <div className="info-text">
-          Devido à política de entrega dos marketplaces, precisamos esperar a liberação dos valores após as entregas com sucesso. Eles fazem isso dentro de <strong>um mês</strong>.
+          Devido à política de entrega dos marketplaces, precisamos esperar a liberação dos valores após o período de entrega do produto e o direito de arrependimento ou devolução do comprador. Eles fazem isso dentro de <strong>60 dias</strong>.
         </div>
       </div>
 
@@ -433,7 +433,7 @@ function BalancePage() {
 
       <button
         className="withdraw-btn"
-        onClick={() => toast.info('Saque disponível quando o saldo for aprovado pelos marketplaces (até 30 dias)')}
+        onClick={() => toast.info('Saque disponível quando o saldo for aprovado pelos marketplaces (até 60 dias)')}
       >
         💸 Solicitar Saque via PIX
       </button>
@@ -441,7 +441,7 @@ function BalancePage() {
       <div className="info-box">
         <div className="info-icon">i</div>
         <div className="info-text">
-          O saldo é liberado após a confirmação de entrega dos produtos. Geralmente em <strong>até 30 dias</strong>. Você pode solicitar saque via PIX quando aprovado.
+          O saldo é liberado após o período de entrega do produto e o direito de arrependimento ou devolução do comprador. Geralmente em <strong>até 60 dias</strong>. Você pode solicitar saque via PIX quando aprovado.
         </div>
       </div>
 
