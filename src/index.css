@@ -336,6 +336,19 @@ body {
   font-size: 16px;
 }
 
+.user-cashback-badge {
+  font-size: 13px;
+  font-weight: 800;
+  color: #065f46;
+  background: #d1fae5;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #a7f3d0;
+}
+
 .proportional-rates {
   display: flex;
   align-items: center;

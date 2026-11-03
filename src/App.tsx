@@ -14,9 +14,9 @@ const SHOPEE_AFFILIATE_ID = 'an_18335281102'
 const SHOPEE_CAMPAIGN_ID = 'id_52MZIjcVHTp'
 
 // ---- Category & Proportional Commission Structure ----
-// Proporção de divisão da comissão: 60% para você (monetização) e 40% para o usuário (cashback)
-export const USER_COMMISSION_SHARE = 0.40 // 40% para o usuário
-export const OWNER_COMMISSION_SHARE = 0.60 // 60% seu lucro líquido
+// Proporção de divisão da comissão: 65% para você (monetização) e 35% para o usuário (cashback)
+export const USER_COMMISSION_SHARE = 0.35 // 35% para o usuário
+export const OWNER_COMMISSION_SHARE = 0.65 // 65% seu lucro líquido
 
 export interface CategoryCommission {
   key: string
@@ -24,7 +24,7 @@ export interface CategoryCommission {
   icon: string
   mlCommission: number      // % paga pelo Mercado Livre
   shopeeCommission: number  // % paga pela Shopee
-  cashbackShare: number     // 40% da comissão para o usuário
+  cashbackShare: number     // 35% da comissão para o usuário
 }
 
 export const CATEGORIES: Record<string, CategoryCommission> = {
@@ -99,15 +99,6 @@ function detectCategory(url: string): CategoryCommission {
   return CATEGORIES.general
 }
 
-function getCashbackRate(category: CategoryCommission, platform: Platform) {
-  const marketplaceRate = platform === 'ml' ? category.mlCommission : category.shopeeCommission
-  const userRateDecimal = (marketplaceRate * category.cashbackShare) / 100
-  const userRatePct = `${(userRateDecimal * 100).toFixed(1).replace('.', ',')}%`
-  const marketplacePct = `${marketplaceRate}%`
-
-  return { marketplaceRate, userRateDecimal, userRatePct, marketplacePct }
-}
-
 interface Purchase {
   id: string
   platform: Platform
@@ -115,7 +106,9 @@ interface Purchase {
   originalLink: string
   affiliateLink: string
   price: number
-  cashback: number
+  totalCommission: number   // 100% da comissão gerada pelo marketplace
+  ownerProfit: number       // 65% seu lucro
+  cashback: number          // 35% cashback do usuário
   cashbackRatePct: string
   categoryName: string
   categoryIcon: string
@@ -210,7 +203,6 @@ function HomePage() {
   const [cashbackAmount, setCashbackAmount] = useState(0)
   const [detectedCategory, setDetectedCategory] = useState<CategoryCommission>(CATEGORIES.general)
   const [cashbackRatePct, setCashbackRatePct] = useState('3,5%')
-  const [marketplaceRatePct, setMarketplaceRatePct] = useState('7%')
   const [copied, setCopied] = useState(false)
   const [totalPending, setTotalPending] = useState(0)
   const [totalFound, setTotalFound] = useState(0)
@@ -263,20 +255,27 @@ function HomePage() {
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
     const category = detectCategory(linkInput.trim())
-    const { userRateDecimal, userRatePct, marketplacePct } = getCashbackRate(category, activePlatform)
+    const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
+
+    // Estima o valor do produto
+    const estimatedPrice = 120 + Math.random() * 380
+
+    // 1) Primeiro valor gerado: comissão bruta total do marketplace (100%)
+    const totalCommission = (estimatedPrice * marketplaceRate) / 100
+
+    // 2) Separação fixa e segura: 65% seu lucro e 35% cashback do usuário
+    const ownerProfit = totalCommission * OWNER_COMMISSION_SHARE // 65%
+    const userCashback = totalCommission * USER_COMMISSION_SHARE // 35%
+
+    // 3) Porcentagem final do cashback que aparece para o usuário
+    const userRatePct = `${((userCashback / estimatedPrice) * 100).toFixed(1).replace('.', ',')}%`
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
-    setMarketplaceRatePct(marketplacePct)
-    
-    // Estimate price from URL (mock) or use base estimate
-    const estimatedPrice = 120 + Math.random() * 380
-    const cashback = estimatedPrice * userRateDecimal
-
     setAffiliateLink(generated)
-    setCashbackAmount(cashback)
-    setTotalFound(prev => prev + cashback)
-    setTotalPending(prev => prev + cashback)
+    setCashbackAmount(userCashback)
+    setTotalFound(prev => prev + userCashback)
+    setTotalPending(prev => prev + userCashback)
     setProcessState('done')
 
     // Save to purchases
@@ -288,7 +287,9 @@ function HomePage() {
       originalLink: linkInput.trim(),
       affiliateLink: generated,
       price: estimatedPrice,
-      cashback,
+      totalCommission,
+      ownerProfit,
+      cashback: userCashback,
       cashbackRatePct: userRatePct,
       categoryName: category.name,
       categoryIcon: category.icon,
@@ -298,7 +299,7 @@ function HomePage() {
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
 
-    toast.success('Link com cashback proporcional gerado com sucesso! 🎉')
+    toast.success('Link com cashback gerado com sucesso! 🎉')
   }
 
   const handleCopy = () => {
@@ -414,19 +415,14 @@ function HomePage() {
 
         {affiliateLink ? (
           <>
-            {/* Category & Proportional Rate Info */}
+            {/* Category & Final Cashback Info */}
             <div className="category-info-box">
               <div className="category-badge">
                 <span className="category-icon">{detectedCategory.icon}</span>
                 <span className="category-name">{detectedCategory.name}</span>
               </div>
-              <div className="proportional-rates">
-                <span className="rate-pill-mkt">
-                  {platform === 'ml' ? 'Comissão ML' : 'Comissão Shopee'}: <strong>{marketplaceRatePct}</strong>
-                </span>
-                <span className="rate-pill-user">
-                  Seu Cashback: <strong>{cashbackRatePct}</strong> (40% da comissão)
-                </span>
+              <div className="user-cashback-badge">
+                💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> ({formatCurrency(cashbackAmount)})
               </div>
             </div>
 
