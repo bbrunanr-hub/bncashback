@@ -840,12 +840,12 @@ function AdminPage({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleLogin = () => {
-    if (password === 'admin123' || password === '1234' || password === 'bruna2026') {
+    if (password === 'admin4128') {
       setIsAuthenticated(true)
       sessionStorage.setItem('bn_admin_auth', 'true')
       toast.success('Acesso de Administradora autenticado! 👑')
     } else {
-      toast.error('Senha incorreta! Dica padrão: admin123')
+      toast.error('Senha incorreta!')
     }
   }
 
@@ -912,7 +912,7 @@ function AdminPage({ onBack }: { onBack: () => void }) {
             <input
               type="password"
               className="link-input"
-              placeholder="Digite a senha (padrão: admin123)"
+              placeholder="Digite a senha de administradora"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
