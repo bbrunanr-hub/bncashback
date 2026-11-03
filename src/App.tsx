@@ -4,7 +4,7 @@ import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
   Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
   Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
-  Share2, Download, Trash2, Edit3, Gift
+  Share2, Download, Trash2, Edit3, Gift, Clock
 } from 'lucide-react'
 import './index.css'
 
@@ -114,6 +114,8 @@ export interface UserProfile {
   createdAt: string
 }
 
+export type PurchaseStatus = 'link_created' | 'purchase_notified' | 'pending' | 'approved'
+
 export interface Purchase {
   id: string
   platform: Platform
@@ -127,7 +129,7 @@ export interface Purchase {
   cashbackRatePct: string
   categoryName: string
   categoryIcon: string
-  status: 'pending' | 'approved'
+  status: PurchaseStatus
   date: string
   userName?: string
   userWhatsapp?: string
@@ -389,6 +391,8 @@ function HomePage({
   const [copied, setCopied] = useState(false)
   const [totalPending, setTotalPending] = useState(0)
   const [totalFound, setTotalFound] = useState(0)
+  const [currentPurchaseId, setCurrentPurchaseId] = useState('')
+  const [hasNotifiedPurchase, setHasNotifiedPurchase] = useState(false)
 
   // Load stats from localStorage
   useEffect(() => {
@@ -458,13 +462,14 @@ function HomePage({
     setAffiliateLink(generated)
     setCashbackAmount(userCashback)
     setTotalFound(prev => prev + userCashback)
-    setTotalPending(prev => prev + userCashback)
+    // O saldo aguardando NÃO aumenta aqui: só aumenta após a compra no marketplace!
     setProcessState('done')
 
-    // Save to purchases
+    // Salva a compra inicialmente com status 'link_created'
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    const newId = crypto.randomUUID()
     const newPurchase: Purchase = {
-      id: crypto.randomUUID(),
+      id: newId,
       platform: activePlatform,
       productName: activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`,
       originalLink: linkInput.trim(),
@@ -476,15 +481,31 @@ function HomePage({
       cashbackRatePct: userRatePct,
       categoryName: category.name,
       categoryIcon: category.icon,
-      status: 'pending',
+      status: 'link_created', // Status inicial: apenas link gerado
       date: new Date().toLocaleDateString('pt-BR'),
       userName: currentUser?.name,
       userWhatsapp: currentUser?.whatsapp,
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
+    setCurrentPurchaseId(newId)
+    setHasNotifiedPurchase(false)
 
     toast.success('Link com cashback gerado com sucesso! 🎉')
+  }
+
+  const handleNotifyPurchase = (id: string) => {
+    if (!id) return
+    const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    const updated = purchases.map(p => {
+      if (p.id === id) {
+        return { ...p, status: 'purchase_notified' as const }
+      }
+      return p
+    })
+    localStorage.setItem('bn_purchases', JSON.stringify(updated))
+    setHasNotifiedPurchase(true)
+    toast.success('Compra informada! Assim que o marketplace computar a venda, o saldo entrará em Saldo Aguardando. 🛍️')
   }
 
   const handleCopy = () => {
@@ -500,6 +521,8 @@ function HomePage({
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
+    setCurrentPurchaseId('')
+    setHasNotifiedPurchase(false)
   }
 
   return (
@@ -616,6 +639,18 @@ function HomePage({
         </div>
       </div>
 
+      {/* Banner Explicativo: Ativação do Saldo Aguardando após a Compra */}
+      <div className="balance-flow-banner">
+        <div className="bfb-icon">🛍️</div>
+        <div className="bfb-content">
+          <div className="bfb-title">Como o Saldo Aguardando funciona?</div>
+          <div className="bfb-desc">
+            O valor em <strong>Saldo Aguardando</strong> só é ativado <strong>após você realizar sua compra</strong> com o link com cashback. 
+            Assim que o Mercado Livre ou a Shopee computar e confirmar a sua compra, seu saldo aparecerá aqui automaticamente!
+          </div>
+        </div>
+      </div>
+
       {/* Link com Cashback - Card para Copiar */}
       <div className={`cashback-link-card ${affiliateLink ? 'has-link' : ''}`}>
         <div className="cashback-link-label">
@@ -672,6 +707,30 @@ function HomePage({
                 Cashback estimado: {formatCurrency(cashbackAmount)} ({cashbackRatePct})
               </div>
             </div>
+
+            {/* Aviso de Futuro Saldo & Botão de Notificação */}
+            <div className="future-balance-box">
+              <div className="fbb-info">
+                <span className="fbb-badge">💰 Futuro Saldo: {formatCurrency(cashbackAmount)}</span>
+                <span className="fbb-note">({cashbackRatePct} de volta após a compra)</span>
+              </div>
+              <p className="fbb-text">
+                Finalize sua compra pelo link acima. Assim que computada pelo marketplace, o valor é adicionado ao seu Saldo Aguardando!
+              </p>
+              {hasNotifiedPurchase ? (
+                <div className="fbb-notified">
+                  ✅ Compra informada! Aguardando o marketplace computar o pedido.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="fbb-notify-btn"
+                  onClick={() => handleNotifyPurchase(currentPurchaseId)}
+                >
+                  <ShoppingBag size={14} /> Já comprou pelo link? Clique para avisar!
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <div className="link-placeholder-box">
@@ -712,14 +771,40 @@ function PurchasesPage() {
     setPurchases(data)
   }, [])
 
+  const handleNotifyFromPurchases = (id: string) => {
+    const updated = purchases.map(p => {
+      if (p.id === id) {
+        return { ...p, status: 'purchase_notified' as const }
+      }
+      return p
+    })
+    setPurchases(updated)
+    localStorage.setItem('bn_purchases', JSON.stringify(updated))
+    toast.success('Compra informada! Aguardando o marketplace computar a venda. 🛍️')
+  }
+
+  const getStatusBadge = (status: PurchaseStatus) => {
+    switch (status) {
+      case 'approved':
+        return { text: 'Aprovado para Saque ✅', className: 'status-approved' }
+      case 'pending':
+        return { text: 'Computado (Aguardando 60d) ⏳', className: 'status-pending' }
+      case 'purchase_notified':
+        return { text: 'Em Análise 🔍', className: 'status-notified' }
+      case 'link_created':
+      default:
+        return { text: 'Aguardando Compra 🛒', className: 'status-created' }
+    }
+  }
+
   if (purchases.length === 0) {
     return (
       <div className="page">
         <div className="section-title">Minhas Compras</div>
-        <div className="section-subtitle">Histórico de links gerados</div>
+        <div className="section-subtitle">Histórico de links e compras</div>
         <div className="empty-state">
           <div className="empty-state-icon">🛍️</div>
-          <div className="empty-state-title">Nenhuma compra ainda</div>
+          <div className="empty-state-title">Nenhum link gerado ainda</div>
           <div className="empty-state-text">
             Cole um link do Mercado Livre ou Shopee na aba Início para gerar seu cashback!
           </div>
@@ -732,23 +817,46 @@ function PurchasesPage() {
     <div className="page">
       <div className="section-title">Minhas Compras</div>
       <div className="section-subtitle">{purchases.length} link{purchases.length !== 1 ? 's' : ''} gerado{purchases.length !== 1 ? 's' : ''}</div>
-      {purchases.map(p => (
-        <div key={p.id} className="purchase-item">
-          <div className={`purchase-icon ${p.platform}`}>
-            {p.platform === 'ml' ? <MLIcon /> : <ShopeeIcon />}
-          </div>
-          <div className="purchase-info">
-            <div className="purchase-name">{p.categoryIcon ? `${p.categoryIcon} ` : ''}{p.productName}</div>
-            <div className="purchase-date">{p.date}{p.cashbackRatePct ? ` • ${p.cashbackRatePct} cashback` : ''}</div>
-          </div>
-          <div className="purchase-cashback">
-            <div className="cashback-amount">+{formatCurrency(p.cashback)}</div>
-            <div className={`cashback-status ${p.status === 'pending' ? 'status-pending' : 'status-approved'}`}>
-              {p.status === 'pending' ? 'Aguardando' : 'Aprovado'}
-            </div>
+
+      {/* Banner Informativo */}
+      <div className="balance-flow-banner compact">
+        <div className="bfb-icon">ℹ️</div>
+        <div className="bfb-content">
+          <div className="bfb-desc">
+            O cashback entra em <strong>Saldo Aguardando</strong> assim que a compra for concluída pelo seu link e computada pelo marketplace.
           </div>
         </div>
-      ))}
+      </div>
+
+      {purchases.map(p => {
+        const badge = getStatusBadge(p.status)
+        return (
+          <div key={p.id} className="purchase-item">
+            <div className={`purchase-icon ${p.platform}`}>
+              {p.platform === 'ml' ? <MLIcon /> : <ShopeeIcon />}
+            </div>
+            <div className="purchase-info">
+              <div className="purchase-name">{p.categoryIcon ? `${p.categoryIcon} ` : ''}{p.productName}</div>
+              <div className="purchase-date">{p.date}{p.cashbackRatePct ? ` • ${p.cashbackRatePct} cashback` : ''}</div>
+              {p.status === 'link_created' && (
+                <button
+                  type="button"
+                  className="purchase-item-notify-btn"
+                  onClick={() => handleNotifyFromPurchases(p.id)}
+                >
+                  <ShoppingBag size={11} /> Já realizei esta compra
+                </button>
+              )}
+            </div>
+            <div className="purchase-cashback">
+              <div className="cashback-amount">+{formatCurrency(p.cashback)}</div>
+              <div className={`cashback-status ${badge.className}`}>
+                {badge.text}
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -784,7 +892,7 @@ function BalancePage({
 
   const totalPending = purchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
   const totalApproved = purchases.filter(p => p.status === 'approved').reduce((a, p) => a + p.cashback, 0)
-  const totalAll = purchases.reduce((a, p) => a + p.cashback, 0)
+  const totalAll = totalPending + totalApproved
 
   const handleRequestWithdrawal = () => {
     if (!pixName.trim()) {
@@ -833,6 +941,17 @@ function BalancePage({
         <div className="balance-chips">
           <div className="balance-chip">✅ Aprovado: {formatCurrency(totalApproved)}</div>
           <div className="balance-chip">⏳ Aguardando: {formatCurrency(totalPending)}</div>
+        </div>
+      </div>
+
+      {/* Banner Explicativo de Saldo */}
+      <div className="balance-flow-banner compact">
+        <div className="bfb-icon"><Clock size={18} color="#D97706" /></div>
+        <div className="bfb-content">
+          <div className="bfb-title">Como o Saldo entra aqui?</div>
+          <div className="bfb-desc">
+            O seu saldo só aparece em <strong>Saldo Aguardando</strong> após a compra ser realizada pelo seu link e computada pelo marketplace (Mercado Livre ou Shopee).
+          </div>
         </div>
       </div>
 
@@ -1149,10 +1268,11 @@ function AdminPage({ onBack }: { onBack: () => void }) {
     }
   }
 
-  // Cálculos Financeiros
-  const totalGrossCommissions = purchases.reduce((acc, p) => acc + (p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)), 0)
-  const totalOwnerProfit = purchases.reduce((acc, p) => acc + (p.ownerProfit || ((p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)) * OWNER_COMMISSION_SHARE)), 0)
-  const totalUserCashback = purchases.reduce((acc, p) => acc + p.cashback, 0)
+  // Cálculos Financeiros (baseados em vendas computadas do marketplace)
+  const confirmedPurchases = purchases.filter(p => p.status === 'pending' || p.status === 'approved')
+  const totalGrossCommissions = confirmedPurchases.reduce((acc, p) => acc + (p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)), 0)
+  const totalOwnerProfit = confirmedPurchases.reduce((acc, p) => acc + (p.ownerProfit || ((p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)) * OWNER_COMMISSION_SHARE)), 0)
+  const totalUserCashback = confirmedPurchases.reduce((acc, p) => acc + p.cashback, 0)
   
   const totalPaid = withdrawals.filter(w => w.status === 'paid').reduce((acc, w) => acc + w.amount, 0)
   const pendingList = withdrawals.filter(w => w.status === 'pending')
@@ -1174,6 +1294,18 @@ function AdminPage({ onBack }: { onBack: () => void }) {
     toast.success('Saque marcado como PAGO via PIX! ✅')
   }
 
+  const handleComputeSale = (purchaseId: string) => {
+    const updated = purchases.map(p => {
+      if (p.id === purchaseId) {
+        return { ...p, status: 'pending' as const }
+      }
+      return p
+    })
+    setPurchases(updated)
+    localStorage.setItem('bn_purchases', JSON.stringify(updated))
+    toast.success('Venda computada do marketplace! Valor adicionado ao Saldo Aguardando do usuário. 💰')
+  }
+
   const handleApproveCommission = (purchaseId: string) => {
     const updated = purchases.map(p => {
       if (p.id === purchaseId) {
@@ -1183,7 +1315,7 @@ function AdminPage({ onBack }: { onBack: () => void }) {
     })
     setPurchases(updated)
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
-    toast.success('Saldo do usuário aprovado para saque! 🎉')
+    toast.success('Saldo do usuário aprovado para saque PIX! 🎉')
   }
 
   const copyText = (text: string, label: string) => {
@@ -1288,13 +1420,13 @@ function AdminPage({ onBack }: { onBack: () => void }) {
         <div className="admin-metric-card green">
           <div className="am-label">💼 Seu Lucro Líquido (65%)</div>
           <div className="am-value">{formatCurrency(totalOwnerProfit)}</div>
-          <div className="am-sub">Baseado em {purchases.length} compra(s)</div>
+          <div className="am-sub">{confirmedPurchases.length} compra(s) computada(s)</div>
         </div>
 
         <div className="admin-metric-card blue">
           <div className="am-label">🎁 Cashback Usuários (35%)</div>
           <div className="am-value">{formatCurrency(totalUserCashback)}</div>
-          <div className="am-sub">Comissões totais: {formatCurrency(totalGrossCommissions)}</div>
+          <div className="am-sub">Total computado: {formatCurrency(totalGrossCommissions)}</div>
         </div>
 
         <div className="admin-metric-card orange">
@@ -1429,11 +1561,22 @@ function AdminPage({ onBack }: { onBack: () => void }) {
       {/* Conteúdo da Aba 2: Comissões e Links */}
       {adminTab === 'commissions' && (
         <div className="admin-section">
+          {/* Banner de instrução de conferência */}
+          <div className="admin-growth-banner" style={{ background: '#FFFBEB', borderColor: '#FCD34D' }}>
+            <div className="agb-icon">🛒</div>
+            <div className="agb-content">
+              <div className="agb-title" style={{ color: '#92400E' }}>Conferência de Vendas no Marketplace</div>
+              <div className="agb-desc" style={{ color: '#78350F' }}>
+                Quando a compra aparecer no seu painel da <strong>Shopee</strong> ou <strong>Mercado Livre</strong>, clique em <strong>"Computar Venda"</strong> para creditar o valor no <strong>Saldo Aguardando</strong> do usuário!
+              </div>
+            </div>
+          </div>
+
           {purchases.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📦</div>
-              <div className="empty-state-title">Nenhuma compra registrada</div>
-              <div className="empty-state-text">Gere links na aba Início para ver as comissões divididas aqui.</div>
+              <div className="empty-state-title">Nenhuma compra ou link registrado</div>
+              <div className="empty-state-text">Gere links na aba Início para ver os registros aqui.</div>
             </div>
           ) : (
             purchases.map(p => {
@@ -1452,7 +1595,7 @@ function AdminPage({ onBack }: { onBack: () => void }) {
 
                   {p.userName && (
                     <div className="as-user-tag">
-                      👤 Gerado por: <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
+                      👤 Usuário: <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
                     </div>
                   )}
 
@@ -1472,16 +1615,52 @@ function AdminPage({ onBack }: { onBack: () => void }) {
                   </div>
 
                   <div className="as-footer">
-                    <span className={`as-status ${p.status === 'approved' ? 'approved' : 'pending'}`}>
-                      {p.status === 'approved' ? 'Status: Aprovado ✅' : 'Status: Aguardando 60 dias ⏳'}
-                    </span>
+                    {p.status === 'link_created' && (
+                      <>
+                        <span className="as-status created">
+                          🛒 Apenas Link Gerado (Aguardando Compra)
+                        </span>
+                        <button
+                          className="as-compute-btn"
+                          onClick={() => handleComputeSale(p.id)}
+                        >
+                          <CheckCircle size={14} /> Computar Venda
+                        </button>
+                      </>
+                    )}
+
+                    {p.status === 'purchase_notified' && (
+                      <>
+                        <span className="as-status notified">
+                          🔔 Usuário Informou Compra! (Conferir no painel)
+                        </span>
+                        <button
+                          className="as-compute-btn primary"
+                          onClick={() => handleComputeSale(p.id)}
+                        >
+                          <CheckCircle size={14} /> Confirmar Venda Computada
+                        </button>
+                      </>
+                    )}
+
                     {p.status === 'pending' && (
-                      <button
-                        className="as-approve-btn"
-                        onClick={() => handleApproveCommission(p.id)}
-                      >
-                        Aprovar Saldo
-                      </button>
+                      <>
+                        <span className="as-status pending">
+                          ⏳ Venda Computada (Saldo Aguardando 60 dias)
+                        </span>
+                        <button
+                          className="as-approve-btn"
+                          onClick={() => handleApproveCommission(p.id)}
+                        >
+                          🎉 Liberar para Saque PIX
+                        </button>
+                      </>
+                    )}
+
+                    {p.status === 'approved' && (
+                      <span className="as-status approved">
+                        Status: Liberado para Saque PIX ✅
+                      </span>
                     )}
                   </div>
                 </div>

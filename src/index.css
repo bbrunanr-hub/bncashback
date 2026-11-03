@@ -1630,3 +1630,147 @@ body {
   justify-content: center;
 }
 .auc-delete-btn:hover { background: #FECACA; }
+
+/* ---- Saldo Aguardando Flow & Purchase Confirmation Banners ---- */
+.balance-flow-banner {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%);
+  border: 1.5px solid #FDE68A;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.08);
+}
+.balance-flow-banner.compact {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+}
+.bfb-icon { font-size: 20px; flex-shrink: 0; line-height: 1.2; }
+.bfb-content { flex: 1; }
+.bfb-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: #92400E;
+  margin-bottom: 2px;
+}
+.bfb-desc {
+  font-size: 11px;
+  color: #78350F;
+  line-height: 1.4;
+}
+
+/* Future Balance Box inside Cashback Link Card */
+.future-balance-box {
+  background: #FFF7ED;
+  border: 1.5px dashed #FDBA74;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fbb-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fbb-badge {
+  font-size: 13px;
+  font-weight: 900;
+  color: #C2410C;
+}
+.fbb-note {
+  font-size: 11px;
+  font-weight: 700;
+  color: #EA580C;
+}
+.fbb-text {
+  font-size: 11px;
+  color: #7C2D12;
+  line-height: 1.35;
+}
+.fbb-notify-btn {
+  background: white;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.fbb-notify-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+.fbb-notified {
+  background: #D1FAE5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 8px 10px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* Status Badges in Purchases */
+.status-created { background: #F1F5F9; color: #475569; }
+.status-notified { background: #FEF3C7; color: #B45309; }
+.purchase-item-notify-btn {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1D4ED8;
+  font-family: 'Nunito', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.purchase-item-notify-btn:hover { background: #DBEAFE; }
+
+/* Admin Sales Computation Badges & Buttons */
+.as-status.created {
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+.as-status.notified {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  font-weight: 900;
+}
+.as-compute-btn {
+  background: #2563EB;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+.as-compute-btn.primary {
+  background: #16A34A;
+  box-shadow: 0 2px 8px rgba(22,163,74,0.3);
+}
+.as-compute-btn:hover { opacity: 0.9; }
