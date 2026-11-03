@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Toaster, toast } from 'sonner'
-import { Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight, Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink } from 'lucide-react'
+import {
+  Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
+  Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
+  Shield, ArrowLeft, DollarSign, Lock, Send
+} from 'lucide-react'
 import './index.css'
 
 type Platform = 'ml' | 'shopee'
-type Tab = 'home' | 'purchases' | 'balance' | 'settings'
+type Tab = 'home' | 'purchases' | 'balance' | 'settings' | 'admin'
 type ProcessState = 'idle' | 'processing' | 'done' | 'error'
 
 // ---- Official Affiliate Credentials ----
@@ -99,7 +103,7 @@ function detectCategory(url: string): CategoryCommission {
   return CATEGORIES.general
 }
 
-interface Purchase {
+export interface Purchase {
   id: string
   platform: Platform
   productName: string
@@ -114,6 +118,17 @@ interface Purchase {
   categoryIcon: string
   status: 'pending' | 'approved'
   date: string
+}
+
+export interface WithdrawalRequest {
+  id: string
+  userName: string
+  pixKey: string
+  pixType: 'cpf' | 'email' | 'phone' | 'random'
+  amount: number
+  status: 'pending' | 'paid' | 'rejected'
+  createdAt: string
+  paidAt?: string
 }
 
 // ---- Affiliate Link Generator ----
@@ -541,15 +556,61 @@ function PurchasesPage() {
 // ---- Balance Page ----
 function BalancePage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
+  const [pixName, setPixName] = useState('')
+  const [pixKey, setPixKey] = useState('')
+  const [pixType, setPixType] = useState<'cpf' | 'email' | 'phone' | 'random'>('cpf')
+  const [withdrawAmount, setWithdrawAmount] = useState('')
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    const wData = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
     setPurchases(data)
+    setWithdrawals(wData)
   }, [])
 
   const totalPending = purchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
   const totalApproved = purchases.filter(p => p.status === 'approved').reduce((a, p) => a + p.cashback, 0)
   const totalAll = purchases.reduce((a, p) => a + p.cashback, 0)
+
+  const handleRequestWithdrawal = () => {
+    if (!pixName.trim()) {
+      toast.error('Informe seu nome completo')
+      return
+    }
+    if (!pixKey.trim()) {
+      toast.error('Informe a sua chave PIX')
+      return
+    }
+    const amountNum = parseFloat(withdrawAmount.replace(',', '.'))
+    if (!amountNum || amountNum <= 0) {
+      toast.error('Informe um valor válido para o saque')
+      return
+    }
+    if (amountNum > totalAll && totalAll > 0) {
+      toast.error(`Valor máximo disponível: ${formatCurrency(totalAll)}`)
+      return
+    }
+
+    const newRequest: WithdrawalRequest = {
+      id: crypto.randomUUID(),
+      userName: pixName.trim(),
+      pixKey: pixKey.trim(),
+      pixType,
+      amount: amountNum,
+      status: 'pending',
+      createdAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const updated = [newRequest, ...withdrawals]
+    setWithdrawals(updated)
+    localStorage.setItem('bn_withdrawals', JSON.stringify(updated))
+    setIsWithdrawModalOpen(false)
+    setPixKey('')
+    setWithdrawAmount('')
+    toast.success('Solicitação de saque via PIX enviada! A administradora processará o pagamento em breve. 🎉')
+  }
 
   return (
     <div className="page">
@@ -564,10 +625,101 @@ function BalancePage() {
 
       <button
         className="withdraw-btn"
-        onClick={() => toast.info('Saque disponível quando o saldo for aprovado pelos marketplaces (até 60 dias)')}
+        onClick={() => {
+          setWithdrawAmount(totalAll > 0 ? totalAll.toFixed(2).replace('.', ',') : '10,00')
+          setIsWithdrawModalOpen(true)
+        }}
       >
         💸 Solicitar Saque via PIX
       </button>
+
+      {/* Modal de Solicitação de Saque PIX */}
+      {isWithdrawModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsWithdrawModalOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <Send size={18} color="var(--primary)" />
+                Solicitar Saque via PIX
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsWithdrawModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <label className="form-label">Nome Completo</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: Bruna Nunes"
+                value={pixName}
+                onChange={e => setPixName(e.target.value)}
+              />
+
+              <label className="form-label">Tipo de Chave PIX</label>
+              <select
+                className="form-input"
+                value={pixType}
+                onChange={e => setPixType(e.target.value as any)}
+              >
+                <option value="cpf">CPF</option>
+                <option value="email">E-mail</option>
+                <option value="phone">Telefone / Celular</option>
+                <option value="random">Chave Aleatória</option>
+              </select>
+
+              <label className="form-label">Chave PIX</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Digite sua chave PIX aqui"
+                value={pixKey}
+                onChange={e => setPixKey(e.target.value)}
+              />
+
+              <label className="form-label">Valor do Saque (R$)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="0,00"
+                value={withdrawAmount}
+                onChange={e => setWithdrawAmount(e.target.value)}
+              />
+
+              <div className="modal-hint">
+                💡 O valor solicitado será analisado e enviado para a sua chave PIX assim que liberado.
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="modal-cancel-btn" onClick={() => setIsWithdrawModalOpen(false)}>
+                Cancelar
+              </button>
+              <button className="modal-confirm-btn" onClick={handleRequestWithdrawal}>
+                Confirmar Saque PIX
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Histórico de Solicitações do Usuário */}
+      {withdrawals.length > 0 && (
+        <div className="user-withdrawals-section">
+          <div className="section-title">Minhas Solicitações de Saque</div>
+          {withdrawals.map(w => (
+            <div key={w.id} className="user-withdrawal-item">
+              <div className="uw-info">
+                <div className="uw-amount">{formatCurrency(w.amount)}</div>
+                <div className="uw-key">PIX ({w.pixType.toUpperCase()}): {w.pixKey}</div>
+                <div className="uw-date">{w.createdAt}</div>
+              </div>
+              <div className={`uw-status ${w.status === 'paid' ? 'paid' : 'pending'}`}>
+                {w.status === 'paid' ? 'Pago via PIX ✅' : 'Aguardando Pagamento ⏳'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="info-box">
         <div className="info-icon">i</div>
@@ -576,7 +728,7 @@ function BalancePage() {
         </div>
       </div>
 
-      {purchases.length === 0 && (
+      {purchases.length === 0 && withdrawals.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">📊</div>
           <div className="empty-state-title">Sem histórico ainda</div>
@@ -588,15 +740,23 @@ function BalancePage() {
 }
 
 // ---- Settings Page ----
-function SettingsPage() {
+function SettingsPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const handleClearData = () => {
     if (confirm('Deseja apagar todo o histórico de compras? Esta ação não pode ser desfeita.')) {
       localStorage.removeItem('bn_purchases')
+      localStorage.removeItem('bn_withdrawals')
       toast.success('Histórico apagado com sucesso')
     }
   }
 
   const items = [
+    {
+      icon: <Shield size={20} color="#EA580C" />,
+      bg: '#FFF7ED',
+      label: 'Painel da Administradora',
+      sub: 'Gestão de saques PIX, comissões e métricas',
+      action: onOpenAdmin
+    },
     {
       icon: <User size={20} color="#3B82F6" />,
       bg: '#EFF6FF',
@@ -609,7 +769,7 @@ function SettingsPage() {
       bg: '#F5F3FF',
       label: 'Chave PIX',
       sub: 'Cadastrar chave para receber saques',
-      action: () => toast.info('Em breve! Configure sua chave PIX para receber cashback.')
+      action: () => toast.info('Configure sua chave ao solicitar saque na aba Meu Saldo.')
     },
     {
       icon: <Bell size={20} color="#F59E0B" />,
@@ -629,7 +789,7 @@ function SettingsPage() {
       icon: <LogOut size={20} color="#EF4444" />,
       bg: '#FEF2F2',
       label: 'Limpar Histórico',
-      sub: 'Apagar todas as compras salvas',
+      sub: 'Apagar compras e saques salvos',
       action: handleClearData
     },
   ]
@@ -662,6 +822,333 @@ function SettingsPage() {
   )
 }
 
+// ---- Admin Page (Painel da Administradora) ----
+function AdminPage({ onBack }: { onBack: () => void }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [password, setPassword] = useState('')
+  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'automation'>('withdrawals')
+
+  useEffect(() => {
+    const isAuth = sessionStorage.getItem('bn_admin_auth') === 'true'
+    if (isAuth) setIsAuthenticated(true)
+    const p = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    const w = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
+    setPurchases(p)
+    setWithdrawals(w)
+  }, [])
+
+  const handleLogin = () => {
+    if (password === 'admin123' || password === '1234' || password === 'bruna2026') {
+      setIsAuthenticated(true)
+      sessionStorage.setItem('bn_admin_auth', 'true')
+      toast.success('Acesso de Administradora autenticado! 👑')
+    } else {
+      toast.error('Senha incorreta! Dica padrão: admin123')
+    }
+  }
+
+  // Cálculos Financeiros
+  const totalGrossCommissions = purchases.reduce((acc, p) => acc + (p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)), 0)
+  const totalOwnerProfit = purchases.reduce((acc, p) => acc + (p.ownerProfit || ((p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)) * OWNER_COMMISSION_SHARE)), 0)
+  const totalUserCashback = purchases.reduce((acc, p) => acc + p.cashback, 0)
+  
+  const totalPaid = withdrawals.filter(w => w.status === 'paid').reduce((acc, w) => acc + w.amount, 0)
+  const pendingList = withdrawals.filter(w => w.status === 'pending')
+  const totalPendingAmount = pendingList.reduce((acc, w) => acc + w.amount, 0)
+
+  const handleMarkAsPaid = (id: string) => {
+    const updated = withdrawals.map(w => {
+      if (w.id === id) {
+        return {
+          ...w,
+          status: 'paid' as const,
+          paidAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        }
+      }
+      return w
+    })
+    setWithdrawals(updated)
+    localStorage.setItem('bn_withdrawals', JSON.stringify(updated))
+    toast.success('Saque marcado como PAGO via PIX! ✅')
+  }
+
+  const handleApproveCommission = (purchaseId: string) => {
+    const updated = purchases.map(p => {
+      if (p.id === purchaseId) {
+        return { ...p, status: 'approved' as const }
+      }
+      return p
+    })
+    setPurchases(updated)
+    localStorage.setItem('bn_purchases', JSON.stringify(updated))
+    toast.success('Saldo do usuário aprovado para saque! 🎉')
+  }
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success(`${label} copiado!`)
+  }
+
+  // Tela de Login com Senha / PIN
+  if (!isAuthenticated) {
+    return (
+      <div className="page">
+        <button className="admin-back-btn" onClick={onBack}>
+          <ArrowLeft size={16} /> Voltar ao App
+        </button>
+
+        <div className="admin-login-card">
+          <div className="admin-lock-icon">
+            <Lock size={32} color="var(--primary)" />
+          </div>
+          <div className="admin-login-title">Painel da Administradora</div>
+          <div className="admin-login-sub">
+            Área restrita para controle de comissões e pagamentos de saques via PIX.
+          </div>
+
+          <div className="admin-login-form">
+            <input
+              type="password"
+              className="link-input"
+              placeholder="Digite a senha (padrão: admin123)"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            />
+            <button className="generate-btn" onClick={handleLogin}>
+              <Shield size={18} /> Entrar no Painel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="page">
+      {/* Top Header Admin */}
+      <div className="admin-topbar">
+        <button className="admin-back-btn" onClick={onBack}>
+          <ArrowLeft size={16} /> Voltar ao App
+        </button>
+        <div className="admin-badge-live">
+          <Shield size={14} /> Modo Admin Ativo
+        </div>
+      </div>
+
+      <div className="section-title">Painel Administrativo</div>
+      <div className="section-subtitle">Gestão de Lucro (65%), Cashback (35%) e Saques PIX</div>
+
+      {/* Grid de Métricas Financeiras */}
+      <div className="admin-metrics-grid">
+        <div className="admin-metric-card green">
+          <div className="am-label">💼 Seu Lucro Líquido (65%)</div>
+          <div className="am-value">{formatCurrency(totalOwnerProfit)}</div>
+          <div className="am-sub">Baseado em {purchases.length} compra(s)</div>
+        </div>
+
+        <div className="admin-metric-card blue">
+          <div className="am-label">🎁 Cashback Usuários (35%)</div>
+          <div className="am-value">{formatCurrency(totalUserCashback)}</div>
+          <div className="am-sub">Comissões totais: {formatCurrency(totalGrossCommissions)}</div>
+        </div>
+
+        <div className="admin-metric-card orange">
+          <div className="am-label">⏳ Saques PIX Pendentes</div>
+          <div className="am-value">{formatCurrency(totalPendingAmount)}</div>
+          <div className="am-sub">{pendingList.length} solicitação(ões) aguardando</div>
+        </div>
+
+        <div className="admin-metric-card purple">
+          <div className="am-label">💸 Total Pago via PIX</div>
+          <div className="am-value">{formatCurrency(totalPaid)}</div>
+          <div className="am-sub">Transferências concluídas</div>
+        </div>
+      </div>
+
+      {/* Abas do Admin */}
+      <div className="platform-tabs">
+        <button
+          className={`platform-tab ${adminTab === 'withdrawals' ? 'active' : ''}`}
+          onClick={() => setAdminTab('withdrawals')}
+        >
+          <DollarSign size={16} />
+          Saques PIX ({pendingList.length})
+        </button>
+        <button
+          className={`platform-tab ${adminTab === 'commissions' ? 'active' : ''}`}
+          onClick={() => setAdminTab('commissions')}
+        >
+          <ShoppingBag size={16} />
+          Vendas ({purchases.length})
+        </button>
+        <button
+          className={`platform-tab ${adminTab === 'automation' ? 'active' : ''}`}
+          onClick={() => setAdminTab('automation')}
+        >
+          <Zap size={16} />
+          Automação PIX
+        </button>
+      </div>
+
+      {/* Conteúdo da Aba 1: Saques PIX */}
+      {adminTab === 'withdrawals' && (
+        <div className="admin-section">
+          {withdrawals.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">💸</div>
+              <div className="empty-state-title">Nenhum pedido de saque ainda</div>
+              <div className="empty-state-text">
+                Assim que um usuário solicitar saque na aba Meu Saldo, ele aparecerá aqui com a chave PIX pronta para você pagar!
+              </div>
+            </div>
+          ) : (
+            withdrawals.map(w => (
+              <div key={w.id} className={`admin-payout-card ${w.status === 'paid' ? 'paid' : 'pending'}`}>
+                <div className="ap-header">
+                  <div className="ap-user-info">
+                    <span className="ap-name">{w.userName}</span>
+                    <span className="ap-date">{w.createdAt}</span>
+                  </div>
+                  <div className={`ap-status-badge ${w.status === 'paid' ? 'paid' : 'pending'}`}>
+                    {w.status === 'paid' ? 'Pago ✅' : 'Pendente ⏳'}
+                  </div>
+                </div>
+
+                <div className="ap-amount-row">
+                  <span className="ap-amount-label">Valor a transferir:</span>
+                  <span className="ap-amount-val">{formatCurrency(w.amount)}</span>
+                  <button
+                    className="copy-mini-btn"
+                    onClick={() => copyText(w.amount.toFixed(2), 'Valor')}
+                    title="Copiar valor"
+                  >
+                    <Copy size={13} /> Copiar R$
+                  </button>
+                </div>
+
+                <div className="ap-pix-box">
+                  <div className="ap-pix-label">
+                    Chave PIX ({w.pixType.toUpperCase()}):
+                  </div>
+                  <div className="ap-pix-key">{w.pixKey}</div>
+                  <button
+                    className="copy-mini-btn primary"
+                    onClick={() => copyText(w.pixKey, 'Chave PIX')}
+                  >
+                    <Copy size={14} /> Copiar Chave PIX
+                  </button>
+                </div>
+
+                {w.status === 'pending' ? (
+                  <button
+                    className="pay-confirm-btn"
+                    onClick={() => handleMarkAsPaid(w.id)}
+                  >
+                    <CheckCircle size={16} /> Confirmar Pagamento Realizado
+                  </button>
+                ) : (
+                  <div className="ap-paid-time">
+                    Pago em: {w.paidAt}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo da Aba 2: Comissões e Links */}
+      {adminTab === 'commissions' && (
+        <div className="admin-section">
+          {purchases.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📦</div>
+              <div className="empty-state-title">Nenhuma compra registrada</div>
+              <div className="empty-state-text">Gere links na aba Início para ver as comissões divididas aqui.</div>
+            </div>
+          ) : (
+            purchases.map(p => {
+              const gross = p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)
+              const owner = p.ownerProfit || (gross * OWNER_COMMISSION_SHARE)
+              return (
+                <div key={p.id} className="admin-sale-card">
+                  <div className="as-header">
+                    <span className="as-platform">{p.platform === 'ml' ? 'Mercado Livre' : 'Shopee'}</span>
+                    <span className="as-date">{p.date}</span>
+                  </div>
+
+                  <div className="as-product">
+                    {p.categoryIcon} {p.productName}
+                  </div>
+
+                  <div className="as-split-grid">
+                    <div className="as-split-item gross">
+                      <span className="as-s-label">Comissão Total (100%)</span>
+                      <span className="as-s-val">{formatCurrency(gross)}</span>
+                    </div>
+                    <div className="as-split-item owner">
+                      <span className="as-s-label">Seu Lucro (65%)</span>
+                      <span className="as-s-val">{formatCurrency(owner)}</span>
+                    </div>
+                    <div className="as-split-item user">
+                      <span className="as-s-label">Cashback Usuário (35%)</span>
+                      <span className="as-s-val">{formatCurrency(p.cashback)}</span>
+                    </div>
+                  </div>
+
+                  <div className="as-footer">
+                    <span className={`as-status ${p.status === 'approved' ? 'approved' : 'pending'}`}>
+                      {p.status === 'approved' ? 'Status: Aprovado ✅' : 'Status: Aguardando 60 dias ⏳'}
+                    </span>
+                    {p.status === 'pending' && (
+                      <button
+                        className="as-approve-btn"
+                        onClick={() => handleApproveCommission(p.id)}
+                      >
+                        Aprovar Saldo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo da Aba 3: Automação de Pagamentos */}
+      {adminTab === 'automation' && (
+        <div className="admin-automation-card">
+          <div className="aa-icon">⚡</div>
+          <div className="aa-title">Automação de Pagamentos PIX</div>
+          <div className="aa-desc">
+            Atualmente, o processo funciona de forma <strong>semiautomática e segura</strong>:
+            o usuário pede o saque, você copia a chave PIX dele com 1 clique e faz a transferência pelo seu banco.
+          </div>
+
+          <div className="aa-steps">
+            <div className="aa-step-item">
+              <span className="step-num">1</span>
+              <div>
+                <strong>Etapa Atual (Manual Segura):</strong> Você confere os pedidos na aba Saques, copia a chave PIX e confirma após transferir.
+              </div>
+            </div>
+            <div className="aa-step-item">
+              <span className="step-num">2</span>
+              <div>
+                <strong>Próxima Etapa (Automação 100%):</strong> Conexão com API PIX (como <em>Mercado Pago</em>, <em>Asaas</em> ou <em>EFI Bank</em>). O app fará o PIX sozinho diretamente para a conta da pessoa sem você precisar abrir o banco!
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- Main App ----
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home')
@@ -679,11 +1166,21 @@ export default function App() {
       <div className="app-shell">
         {/* Header */}
         <header className="app-header">
-          <div className="header-logo">
-            <LogoIcon />
-            <div className="logo-text">
-              <span className="bn">BN</span><span className="cb">cashback</span>
+          <div className="header-logo-container">
+            <div className="header-logo">
+              <LogoIcon />
+              <div className="logo-text">
+                <span className="bn">BN</span><span className="cb">cashback</span>
+              </div>
             </div>
+            {/* Atalho discreto de Admin */}
+            <button
+              className="admin-header-btn"
+              onClick={() => setActiveTab('admin')}
+              title="Painel da Administradora"
+            >
+              <Shield size={16} />
+            </button>
           </div>
           <div className="header-tagline">Compre, ganhe cashback! 🎯</div>
         </header>
@@ -693,7 +1190,8 @@ export default function App() {
           {activeTab === 'home' && <HomePage />}
           {activeTab === 'purchases' && <PurchasesPage />}
           {activeTab === 'balance' && <BalancePage />}
-          {activeTab === 'settings' && <SettingsPage />}
+          {activeTab === 'settings' && <SettingsPage onOpenAdmin={() => setActiveTab('admin')} />}
+          {activeTab === 'admin' && <AdminPage onBack={() => setActiveTab('settings')} />}
         </main>
 
         {/* Bottom Navigation */}
