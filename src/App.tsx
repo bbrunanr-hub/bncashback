@@ -7,10 +7,102 @@ type Platform = 'ml' | 'shopee'
 type Tab = 'home' | 'purchases' | 'balance' | 'settings'
 type ProcessState = 'idle' | 'processing' | 'done' | 'error'
 
-const ML_AFFILIATE_TAG = 'bncashback-20'
-const SHOPEE_AFFILIATE_TAG = 'bncashback'
-const CASHBACK_RATE = 0.025 // 2.5%
-const CASHBACK_RATE_PCT = '2,5%'
+// ---- Official Affiliate Credentials ----
+const ML_AFFILIATE_TAG = 'bbrunanr'
+const ML_MATT_TOOL = '68798236'
+const SHOPEE_AFFILIATE_ID = 'an_18335281102'
+const SHOPEE_CAMPAIGN_ID = 'id_52MZIjcVHTp'
+
+// ---- Category & Proportional Commission Structure ----
+export interface CategoryCommission {
+  key: string
+  name: string
+  icon: string
+  mlCommission: number      // % paid by Mercado Livre
+  shopeeCommission: number  // % paid by Shopee
+  cashbackShare: number     // Share repassed to user (0.5 = 50%)
+}
+
+export const CATEGORIES: Record<string, CategoryCommission> = {
+  fashion: {
+    key: 'fashion',
+    name: 'Moda, Calçados & Beleza',
+    icon: '👗',
+    mlCommission: 12,
+    shopeeCommission: 14,
+    cashbackShare: 0.5,
+  },
+  home: {
+    key: 'home',
+    name: 'Casa, Decoração & Cozinha',
+    icon: '🏠',
+    mlCommission: 9,
+    shopeeCommission: 10,
+    cashbackShare: 0.5,
+  },
+  tools: {
+    key: 'tools',
+    name: 'Ferramentas & Construção',
+    icon: '🛠️',
+    mlCommission: 8,
+    shopeeCommission: 8,
+    cashbackShare: 0.5,
+  },
+  toys_sports: {
+    key: 'toys_sports',
+    name: 'Brinquedos, Bebês & Esportes',
+    icon: '🧸',
+    mlCommission: 8,
+    shopeeCommission: 9,
+    cashbackShare: 0.5,
+  },
+  electronics: {
+    key: 'electronics',
+    name: 'Celulares & Eletrônicos',
+    icon: '📱',
+    mlCommission: 4,
+    shopeeCommission: 4,
+    cashbackShare: 0.5,
+  },
+  general: {
+    key: 'general',
+    name: 'Variedades & Outros',
+    icon: '📦',
+    mlCommission: 7,
+    shopeeCommission: 7,
+    cashbackShare: 0.5,
+  },
+}
+
+function detectCategory(url: string): CategoryCommission {
+  const lower = url.toLowerCase()
+
+  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|relogio|joia|bijuteria|skincare|cabelo/i.test(lower)) {
+    return CATEGORIES.fashion
+  }
+  if (/ferramenta|furadeira|parafusadeira|serra|martelo|esmerilhadeira|chave|alicate|construcao|tinta/i.test(lower)) {
+    return CATEGORIES.tools
+  }
+  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina/i.test(lower)) {
+    return CATEGORIES.home
+  }
+  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet/i.test(lower)) {
+    return CATEGORIES.electronics
+  }
+  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento/i.test(lower)) {
+    return CATEGORIES.toys_sports
+  }
+  return CATEGORIES.general
+}
+
+function getCashbackRate(category: CategoryCommission, platform: Platform) {
+  const marketplaceRate = platform === 'ml' ? category.mlCommission : category.shopeeCommission
+  const userRateDecimal = (marketplaceRate * category.cashbackShare) / 100
+  const userRatePct = `${(userRateDecimal * 100).toFixed(1).replace('.', ',')}%`
+  const marketplacePct = `${marketplaceRate}%`
+
+  return { marketplaceRate, userRateDecimal, userRatePct, marketplacePct }
+}
 
 interface Purchase {
   id: string
@@ -20,6 +112,9 @@ interface Purchase {
   affiliateLink: string
   price: number
   cashback: number
+  cashbackRatePct: string
+  categoryName: string
+  categoryIcon: string
   status: 'pending' | 'approved'
   date: string
 }
@@ -29,13 +124,21 @@ function generateAffiliateLink(url: string, platform: Platform): string {
   try {
     const parsed = new URL(url)
     if (platform === 'ml') {
-      // Mercado Livre: add tracking param
+      // Mercado Livre: official affiliate tracking parameters
+      parsed.searchParams.set('matt_tool', ML_MATT_TOOL)
+      parsed.searchParams.set('matt_word', ML_AFFILIATE_TAG)
+      parsed.searchParams.set('forceInApp', 'true')
       parsed.searchParams.set('LID', ML_AFFILIATE_TAG)
       parsed.searchParams.set('affId', ML_AFFILIATE_TAG)
       return parsed.toString()
     } else if (platform === 'shopee') {
-      // Shopee: use deep-link redirect format
-      return `https://shope.ee/affiliate?url=${encodeURIComponent(url)}&tag=${SHOPEE_AFFILIATE_TAG}`
+      // Shopee: official partner tracking parameters
+      parsed.searchParams.set('mmp_pid', SHOPEE_AFFILIATE_ID)
+      parsed.searchParams.set('utm_source', SHOPEE_AFFILIATE_ID)
+      parsed.searchParams.set('utm_medium', 'affiliates')
+      parsed.searchParams.set('utm_campaign', SHOPEE_CAMPAIGN_ID)
+      parsed.searchParams.set('share_channel_code', '1')
+      return parsed.toString()
     }
     return url
   } catch {
@@ -101,6 +204,9 @@ function HomePage() {
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
+  const [detectedCategory, setDetectedCategory] = useState<CategoryCommission>(CATEGORIES.general)
+  const [cashbackRatePct, setCashbackRatePct] = useState('3,5%')
+  const [marketplaceRatePct, setMarketplaceRatePct] = useState('7%')
   const [copied, setCopied] = useState(false)
   const [totalPending, setTotalPending] = useState(0)
   const [totalFound, setTotalFound] = useState(0)
@@ -152,10 +258,16 @@ function HomePage() {
     await new Promise(r => setTimeout(r, 1800))
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
+    const category = detectCategory(linkInput.trim())
+    const { userRateDecimal, userRatePct, marketplacePct } = getCashbackRate(category, activePlatform)
+
+    setDetectedCategory(category)
+    setCashbackRatePct(userRatePct)
+    setMarketplaceRatePct(marketplacePct)
     
     // Estimate price from URL (mock) or use base estimate
     const estimatedPrice = 120 + Math.random() * 380
-    const cashback = estimatedPrice * CASHBACK_RATE
+    const cashback = estimatedPrice * userRateDecimal
 
     setAffiliateLink(generated)
     setCashbackAmount(cashback)
@@ -168,18 +280,21 @@ function HomePage() {
     const newPurchase: Purchase = {
       id: crypto.randomUUID(),
       platform: activePlatform,
-      productName: activePlatform === 'ml' ? 'Produto Mercado Livre' : 'Produto Shopee',
+      productName: activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`,
       originalLink: linkInput.trim(),
       affiliateLink: generated,
       price: estimatedPrice,
       cashback,
+      cashbackRatePct: userRatePct,
+      categoryName: category.name,
+      categoryIcon: category.icon,
       status: 'pending',
       date: new Date().toLocaleDateString('pt-BR')
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
 
-    toast.success('Link com cashback gerado com sucesso! 🎉')
+    toast.success('Link com cashback proporcional gerado com sucesso! 🎉')
   }
 
   const handleCopy = () => {
@@ -295,6 +410,22 @@ function HomePage() {
 
         {affiliateLink ? (
           <>
+            {/* Category & Proportional Rate Info */}
+            <div className="category-info-box">
+              <div className="category-badge">
+                <span className="category-icon">{detectedCategory.icon}</span>
+                <span className="category-name">{detectedCategory.name}</span>
+              </div>
+              <div className="proportional-rates">
+                <span className="rate-pill-mkt">
+                  {platform === 'ml' ? 'Comissão ML' : 'Comissão Shopee'}: <strong>{marketplaceRatePct}</strong>
+                </span>
+                <span className="rate-pill-user">
+                  Seu Cashback: <strong>{cashbackRatePct}</strong> (50%)
+                </span>
+              </div>
+            </div>
+
             <div className="link-input-wrap">
               <input
                 className="link-input link-readonly"
@@ -323,7 +454,7 @@ function HomePage() {
               </a>
               <div className="cashback-chip">
                 <TrendingUp size={14} />
-                Cashback estimado: {formatCurrency(cashbackAmount)} ({CASHBACK_RATE_PCT})
+                Cashback estimado: {formatCurrency(cashbackAmount)} ({cashbackRatePct})
               </div>
             </div>
           </>
@@ -392,8 +523,8 @@ function PurchasesPage() {
             {p.platform === 'ml' ? <MLIcon /> : <ShopeeIcon />}
           </div>
           <div className="purchase-info">
-            <div className="purchase-name">{p.productName}</div>
-            <div className="purchase-date">{p.date}</div>
+            <div className="purchase-name">{p.categoryIcon ? `${p.categoryIcon} ` : ''}{p.productName}</div>
+            <div className="purchase-date">{p.date}{p.cashbackRatePct ? ` • ${p.cashbackRatePct} cashback` : ''}</div>
           </div>
           <div className="purchase-cashback">
             <div className="cashback-amount">+{formatCurrency(p.cashback)}</div>
