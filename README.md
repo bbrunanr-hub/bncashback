@@ -1,32 +1,33 @@
-# React + TypeScript + Vite
+﻿# BNcashback
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> Compre, ganhe cashback! Converta links do Mercado Livre e Shopee automaticamente.
 
-Currently, two official plugins are available:
+## O que é?
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+BNcashback é um app web que transforma qualquer link de produto do **Mercado Livre** ou **Shopee** em um link com rastreamento de afiliado, gerando cashback automático para você.
 
-## React Compiler
+## Como funciona?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Cole o link do produto (ML ou Shopee)
+2. Clique em "Gerar link com cashback"  
+3. O robô converte o link em segundos
+4. Copie o novo link e use para comprar
+5. Ganhe cashback de **2,5%** do valor!
 
-## Expanding the Oxlint configuration
+## Stack
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- React + TypeScript + Vite
+- Sonner (notificações)
+- Lucide React (ícones)
+- CSS Vanilla (design personalizado)
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Deploy
+
+Hospedado na Vercel: https://bncashback.vercel.app
+
+## Desenvolvimento
+
+```bash
+npm install
+npm run dev
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

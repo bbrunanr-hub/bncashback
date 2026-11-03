@@ -273,6 +273,118 @@ body {
 .cta-text { font-size: 13px; color: var(--text); font-weight: 600; }
 .cta-text .highlight { font-size: 17px; font-weight: 900; color: var(--primary); display: block; }
 
+.cashback-link-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.cashback-link-card.has-link {
+  border-color: #10B981;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+
+.cashback-link-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.cashback-link-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cashback-badge-ready {
+  font-size: 11px;
+  font-weight: 800;
+  background: #D1FAE5;
+  color: #065F46;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.link-readonly {
+  background: #f8fafc;
+  color: #1e293b;
+  font-weight: 600;
+  cursor: text;
+}
+
+.copy-action-btn {
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.copy-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.copy-action-btn.copied {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.cashback-result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.open-store-btn {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.open-store-btn:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.link-placeholder-box {
+  background: var(--bg);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.link-placeholder-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .affiliate-result {
   background: var(--bg-card);
   border-radius: var(--radius);

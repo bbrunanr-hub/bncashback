@@ -1,6 +1,6 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Toaster, toast } from 'sonner'
-import { Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight, Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp } from 'lucide-react'
+import { Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight, Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink } from 'lucide-react'
 import './index.css'
 
 type Platform = 'ml' | 'shopee'
@@ -230,6 +230,9 @@ function HomePage() {
             placeholder={platform === 'ml' ? 'Ex: https://www.mercadolivre.com.br/...' : 'Ex: https://shopee.com.br/...'}
             value={linkInput}
             onChange={e => setLinkInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleGenerate()
+            }}
             disabled={processState === 'processing'}
           />
           <button className="paste-btn" onClick={handlePaste} disabled={processState === 'processing'}>
@@ -260,24 +263,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Result */}
-      {processState === 'done' && affiliateLink && (
-        <div className="affiliate-result">
-          <div className="affiliate-result-header">
-            <CheckCircle size={18} />
-            Link com cashback gerado!
-          </div>
-          <div className="affiliate-link-box">{affiliateLink}</div>
-          <button className="copy-btn" onClick={handleCopy}>
-            {copied ? <><CheckCircle size={16} /> Copiado!</> : <><Copy size={16} /> Copiar link de cashback</>}
-          </button>
-          <div className="cashback-chip">
-            <TrendingUp size={14} />
-            Cashback estimado: {formatCurrency(cashbackAmount)} ({CASHBACK_RATE_PCT})
-          </div>
-        </div>
-      )}
-
       {/* Stats Cards */}
       <div className="result-grid">
         <div className="result-card blue">
@@ -294,6 +279,63 @@ function HomePage() {
           </div>
           <div className="result-card-value">{formatCurrency(totalPending)}</div>
         </div>
+      </div>
+
+      {/* Link com Cashback - Card para Copiar */}
+      <div className={`cashback-link-card ${affiliateLink ? 'has-link' : ''}`}>
+        <div className="cashback-link-label">
+          <div className="cashback-link-title">
+            <Link2 size={18} color="var(--primary)" />
+            <span>Link com cashback</span>
+          </div>
+          {affiliateLink && (
+            <span className="cashback-badge-ready">Pronto para copiar! ✨</span>
+          )}
+        </div>
+
+        {affiliateLink ? (
+          <>
+            <div className="link-input-wrap">
+              <input
+                className="link-input link-readonly"
+                type="text"
+                readOnly
+                value={affiliateLink}
+                onClick={e => (e.target as HTMLInputElement).select()}
+              />
+              <button
+                className={`paste-btn copy-action-btn ${copied ? 'copied' : ''}`}
+                onClick={handleCopy}
+              >
+                {copied ? <><CheckCircle size={15} /> Copiado!</> : <><Copy size={15} /> Copiar</>}
+              </button>
+            </div>
+
+            <div className="cashback-result-actions">
+              <a
+                href={affiliateLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="open-store-btn"
+              >
+                <ExternalLink size={14} />
+                {platform === 'ml' ? 'Abrir no Mercado Livre' : 'Abrir na Shopee'}
+              </a>
+              <div className="cashback-chip">
+                <TrendingUp size={14} />
+                Cashback estimado: {formatCurrency(cashbackAmount)} ({CASHBACK_RATE_PCT})
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="link-placeholder-box">
+            <div className="link-placeholder-text">
+              {processState === 'processing'
+                ? 'Convertendo e gerando seu link com cashback...'
+                : 'Cole o link do produto acima para copiar seu link com cashback aqui.'}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info Box */}
