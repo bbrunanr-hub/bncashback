@@ -14,13 +14,17 @@ const SHOPEE_AFFILIATE_ID = 'an_18335281102'
 const SHOPEE_CAMPAIGN_ID = 'id_52MZIjcVHTp'
 
 // ---- Category & Proportional Commission Structure ----
+// Proporção de divisão da comissão: 60% para você (monetização) e 40% para o usuário (cashback)
+export const USER_COMMISSION_SHARE = 0.40 // 40% para o usuário
+export const OWNER_COMMISSION_SHARE = 0.60 // 60% seu lucro líquido
+
 export interface CategoryCommission {
   key: string
   name: string
   icon: string
-  mlCommission: number      // % paid by Mercado Livre
-  shopeeCommission: number  // % paid by Shopee
-  cashbackShare: number     // Share repassed to user (0.5 = 50%)
+  mlCommission: number      // % paga pelo Mercado Livre
+  shopeeCommission: number  // % paga pela Shopee
+  cashbackShare: number     // 40% da comissão para o usuário
 }
 
 export const CATEGORIES: Record<string, CategoryCommission> = {
@@ -30,7 +34,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '👗',
     mlCommission: 12,
     shopeeCommission: 14,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
   home: {
     key: 'home',
@@ -38,7 +42,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '🏠',
     mlCommission: 9,
     shopeeCommission: 10,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
   tools: {
     key: 'tools',
@@ -46,7 +50,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '🛠️',
     mlCommission: 8,
     shopeeCommission: 8,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
   toys_sports: {
     key: 'toys_sports',
@@ -54,7 +58,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '🧸',
     mlCommission: 8,
     shopeeCommission: 9,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
   electronics: {
     key: 'electronics',
@@ -62,7 +66,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '📱',
     mlCommission: 4,
     shopeeCommission: 4,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
   general: {
     key: 'general',
@@ -70,7 +74,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     icon: '📦',
     mlCommission: 7,
     shopeeCommission: 7,
-    cashbackShare: 0.5,
+    cashbackShare: USER_COMMISSION_SHARE,
   },
 }
 
@@ -421,7 +425,7 @@ function HomePage() {
                   {platform === 'ml' ? 'Comissão ML' : 'Comissão Shopee'}: <strong>{marketplaceRatePct}</strong>
                 </span>
                 <span className="rate-pill-user">
-                  Seu Cashback: <strong>{cashbackRatePct}</strong> (50%)
+                  Seu Cashback: <strong>{cashbackRatePct}</strong> (40% da comissão)
                 </span>
               </div>
             </div>
