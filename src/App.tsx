@@ -554,27 +554,23 @@ function HomePage({
       }
     }
 
-    // Se a API não retornou o preço, verifica o valor informado
+    // Se a API não retornou o preço, verifica o valor informado se houver
     const cleanPrice = priceInput.trim().replace('R$', '').trim().replace(',', '.')
     const productPrice = parseFloat(cleanPrice)
+    const hasPrice = !isNaN(productPrice) && productPrice > 0
 
-    if (isNaN(productPrice) || productPrice <= 0) {
-      setProcessState('idle')
-      toast.info('Por favor, informe o valor do produto no site para calcular o cashback exato.')
-      return
-    }
-
-    // Processamento com valor informado
-    await new Promise(r => setTimeout(r, 800))
+    // Processamento com ou sem valor informado
+    await new Promise(r => setTimeout(r, 600))
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
     const category = detectCategory(linkInput.trim())
     const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
 
-    const totalCommission = (productPrice * marketplaceRate) / 100
-    const ownerProfit = totalCommission * OWNER_COMMISSION_SHARE // 60%
-    const userCashback = totalCommission * USER_COMMISSION_SHARE // 40%
-    const userRatePct = `${((userCashback / productPrice) * 100).toFixed(1).replace('.', ',')}%`
+    const totalCommission = hasPrice ? (productPrice * marketplaceRate) / 100 : 0
+    const ownerProfit = hasPrice ? totalCommission * OWNER_COMMISSION_SHARE : 0 // 60%
+    const userCashback = hasPrice ? totalCommission * USER_COMMISSION_SHARE : 0 // 40%
+    const userRatePctVal = (marketplaceRate * USER_COMMISSION_SHARE).toFixed(1).replace('.', ',')
+    const userRatePct = `${userRatePctVal}%`
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
@@ -592,7 +588,7 @@ function HomePage({
       productName: productTitle || (activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`),
       originalLink: linkInput.trim(),
       affiliateLink: generated,
-      price: productPrice,
+      price: hasPrice ? productPrice : 0,
       totalCommission,
       ownerProfit,
       cashback: userCashback,
@@ -739,11 +735,11 @@ function HomePage({
           </button>
         </div>
 
-        {/* Campo de Preço do Produto para cálculo exato */}
+        {/* Campo de Preço do Produto (Opcional) */}
         <div className="product-price-section">
           <div className="product-price-label">
             <span>Valor do produto no site:</span>
-            <span className="product-price-hint">Divisão: 60% você / 40% usuário</span>
+            <span className="product-price-hint">Opcional para cálculo em R$</span>
           </div>
           <div className="product-price-wrap">
             <span className="price-currency">R$</span>
@@ -751,7 +747,7 @@ function HomePage({
               type="text"
               inputMode="decimal"
               className="product-price-input"
-              placeholder="Ex: 21,25"
+              placeholder="Ex: 50,00"
               value={priceInput}
               onChange={e => {
                 setPriceInput(e.target.value)
@@ -875,7 +871,7 @@ function HomePage({
                 <span className="category-name">{detectedCategory.name}</span>
               </div>
               <div className="user-cashback-badge">
-                💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> ({formatCurrency(cashbackAmount)})
+                💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> {cashbackAmount > 0 ? `(${formatCurrency(cashbackAmount)})` : ''}
               </div>
             </div>
 
@@ -907,14 +903,14 @@ function HomePage({
               </a>
               <div className="cashback-chip">
                 <TrendingUp size={14} />
-                Cashback estimado: {formatCurrency(cashbackAmount)} ({cashbackRatePct})
+                Cashback: {cashbackAmount > 0 ? `${formatCurrency(cashbackAmount)} (${cashbackRatePct})` : `Até ${cashbackRatePct} de volta`}
               </div>
             </div>
 
             {/* Aviso de Futuro Saldo & Botão de Notificação */}
             <div className="future-balance-box">
               <div className="fbb-info">
-                <span className="fbb-badge">💰 Futuro Saldo: {formatCurrency(cashbackAmount)}</span>
+                <span className="fbb-badge">💰 Futuro Saldo: {cashbackAmount > 0 ? formatCurrency(cashbackAmount) : `Até ${cashbackRatePct}`}</span>
                 <span className="fbb-note">({cashbackRatePct} de volta após a compra)</span>
               </div>
               <p className="fbb-text">
