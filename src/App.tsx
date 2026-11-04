@@ -35,17 +35,17 @@ export interface CategoryCommission {
 export const CATEGORIES: Record<string, CategoryCommission> = {
   fashion: {
     key: 'fashion',
-    name: 'Moda, Calçados & Beleza',
+    name: 'Moda, Beleza & Esportes',
     icon: '👗',
-    mlCommission: 12,
+    mlCommission: 16, // Oficial Mercado Livre Venda Direta: 16%
     shopeeCommission: 14,
     cashbackShare: USER_COMMISSION_SHARE,
   },
   home: {
     key: 'home',
-    name: 'Casa, Decoração & Cozinha',
+    name: 'Casa, Móveis & Decoração',
     icon: '🏠',
-    mlCommission: 9,
+    mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
     shopeeCommission: 10,
     cashbackShare: USER_COMMISSION_SHARE,
   },
@@ -53,32 +53,56 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     key: 'tools',
     name: 'Ferramentas & Construção',
     icon: '🛠️',
-    mlCommission: 8,
+    mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
     shopeeCommission: 8,
     cashbackShare: USER_COMMISSION_SHARE,
   },
   toys_sports: {
     key: 'toys_sports',
-    name: 'Brinquedos, Bebês & Esportes',
+    name: 'Brinquedos, Bebês & Games',
     icon: '🧸',
-    mlCommission: 8,
+    mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
     shopeeCommission: 9,
+    cashbackShare: USER_COMMISSION_SHARE,
+  },
+  books: {
+    key: 'books',
+    name: 'Livros & Revistas',
+    icon: '📚',
+    mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
+    shopeeCommission: 10,
+    cashbackShare: USER_COMMISSION_SHARE,
+  },
+  auto: {
+    key: 'auto',
+    name: 'Acessórios para Veículos',
+    icon: '🚗',
+    mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
+    shopeeCommission: 8,
     cashbackShare: USER_COMMISSION_SHARE,
   },
   electronics: {
     key: 'electronics',
-    name: 'Celulares & Eletrônicos',
+    name: 'Tecnologia & Eletrodomésticos',
     icon: '📱',
-    mlCommission: 4,
+    mlCommission: 5, // Oficial Mercado Livre Venda Direta: 5%
     shopeeCommission: 4,
+    cashbackShare: USER_COMMISSION_SHARE,
+  },
+  food: {
+    key: 'food',
+    name: 'Alimentos & Bebidas',
+    icon: '🥫',
+    mlCommission: 0, // Oficial Mercado Livre Venda Direta: 0%
+    shopeeCommission: 2,
     cashbackShare: USER_COMMISSION_SHARE,
   },
   general: {
     key: 'general',
-    name: 'Variedades & Outros',
+    name: 'Casa, Variedades & Outros',
     icon: '📦',
-    mlCommission: 7,
-    shopeeCommission: 7,
+    mlCommission: 12, // Padrão Oficial Mercado Livre Venda Direta: 12%
+    shopeeCommission: 8,
     cashbackShare: USER_COMMISSION_SHARE,
   },
 }
@@ -86,20 +110,29 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
 function detectCategory(url: string): CategoryCommission {
   const lower = url.toLowerCase()
 
-  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|relogio|joia|bijuteria|skincare|cabelo/i.test(lower)) {
+  if (/alimento|alimentos|bebida|bebidas|cerveja|vinho|whisky|refrigerante|cafe|arroz|feijao|azeite|supermercado/i.test(lower)) {
+    return CATEGORIES.food
+  }
+  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(lower)) {
     return CATEGORIES.fashion
+  }
+  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|eletrodomestico|geladeira|fogao|microondas|lavadora|ar-condicionado|impressora/i.test(lower)) {
+    return CATEGORIES.electronics
+  }
+  if (/livro|livros|revista|revistas|kam|key account|leitura|kindle/i.test(lower)) {
+    return CATEGORIES.books
   }
   if (/ferramenta|furadeira|parafusadeira|serra|martelo|esmerilhadeira|chave|alicate|construcao|tinta/i.test(lower)) {
     return CATEGORIES.tools
   }
-  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina/i.test(lower)) {
-    return CATEGORIES.home
-  }
-  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet/i.test(lower)) {
-    return CATEGORIES.electronics
-  }
-  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento/i.test(lower)) {
+  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|game|jogos|jogo/i.test(lower)) {
     return CATEGORIES.toys_sports
+  }
+  if (/carro|moto|pneu|oleo|automotivo|veiculo|peca|capacete/i.test(lower)) {
+    return CATEGORIES.auto
+  }
+  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina|joia|relogio|bijuteria/i.test(lower)) {
+    return CATEGORIES.home
   }
   return CATEGORIES.general
 }
@@ -548,7 +581,7 @@ function HomePage({
     const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
 
     const userRatePctVal = (marketplaceRate * USER_COMMISSION_SHARE).toFixed(1).replace('.', ',')
-    const userRatePct = `${userRatePctVal}%`
+    const userRatePct = marketplaceRate > 0 ? `${userRatePctVal}%` : '0%'
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)

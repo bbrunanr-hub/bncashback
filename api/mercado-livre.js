@@ -70,25 +70,44 @@ function extractSlugTitle(rawUrl) {
 
 function mapCategoryCommission(categoryName, title) {
   const text = `${categoryName || ''} ${title || ''}`.toLowerCase();
-  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|relogio|joia|bijuteria|skincare|cabelo|bolsa/i.test(text)) {
-    return { name: 'Moda, Calçados & Beleza', icon: '👗', rate: 12 };
+
+  // 4. Alimentos e Bebidas (0% no Mercado Livre Afiliados)
+  if (/alimento|alimentos|bebida|bebidas|cerveja|vinho|whisky|refrigerante|cafe|arroz|feijao|azeite|supermercado/i.test(text)) {
+    return { name: 'Alimentos & Bebidas', icon: '🥫', rate: 0 };
+  }
+
+  // 1. Moda, Beleza e Cuidados Pessoais, Calçados, Roupas, Bolsas, Esportes e Fitness (16% Venda Direta)
+  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(text)) {
+    return { name: 'Moda, Beleza & Esportes', icon: '👗', rate: 16 };
+  }
+
+  // 3. Tecnologia e Eletrodomésticos: Celulares, Eletrônicos, Áudio e Vídeo, Informática, Câmeras (5% Venda Direta)
+  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|geladeira|fogao|microondas|lavadora|ar-condicionado|impressora/i.test(text)) {
+    return { name: 'Tecnologia & Eletrodomésticos', icon: '📱', rate: 5 };
+  }
+
+  // 2. Casa, Móveis, Decoração, Construção, Ferramentas, Brinquedos, Bebês, Games, Joias, Relógios, Livros e Revistas, Acessórios para Veículos (12% Venda Direta)
+  if (/livro|revista|kam|key account|leitura|kindle/i.test(text)) {
+    return { name: 'Livros & Revistas', icon: '📚', rate: 12 };
   }
   if (/ferramenta|furadeira|parafusadeira|serra|martelo|esmerilhadeira|chave|alicate|construcao|tinta/i.test(text)) {
-    return { name: 'Ferramentas & Construção', icon: '🛠️', rate: 8 };
+    return { name: 'Ferramentas & Construção', icon: '🛠️', rate: 12 };
   }
   if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina/i.test(text)) {
-    return { name: 'Casa, Decoração & Cozinha', icon: '🏠', rate: 9 };
+    return { name: 'Casa, Móveis & Decoração', icon: '🏠', rate: 12 };
   }
-  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet/i.test(text)) {
-    return { name: 'Celulares & Eletrônicos', icon: '📱', rate: 4 };
-  }
-  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento/i.test(text)) {
-    return { name: 'Brinquedos, Bebês & Esportes', icon: '🧸', rate: 8 };
+  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|game|jogos|jogo/i.test(text)) {
+    return { name: 'Brinquedos, Bebês & Games', icon: '🧸', rate: 12 };
   }
   if (/carro|moto|pneu|oleo|automotivo|veiculo|peca|capacete/i.test(text)) {
-    return { name: 'Acessórios para Veículos', icon: '🚗', rate: 7 };
+    return { name: 'Acessórios para Veículos', icon: '🚗', rate: 12 };
   }
-  return { name: 'Variedades & Outros', icon: '📦', rate: 7 };
+  if (/joia|relogio|bijuteria/i.test(text)) {
+    return { name: 'Joias & Relógios', icon: '⌚', rate: 12 };
+  }
+
+  // Demais categorias / Variedades em geral no Mercado Livre: 12%
+  return { name: 'Casa, Variedades & Outros', icon: '📦', rate: 12 };
 }
 
 function generateAffiliateUrl(url) {
