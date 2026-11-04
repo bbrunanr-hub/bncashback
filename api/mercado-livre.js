@@ -4,11 +4,17 @@
 const ML_AFFILIATE_TAG = 'bbrunanr';
 const ML_MATT_TOOL = '68798236';
 
+const DEFAULT_CLIENT_ID = '6686394200490654';
+const DEFAULT_CLIENT_SECRET = 'Jjf0SlC5UD79ACry5O9xjXIiloQstOFK';
+
 // Cache access token across serverless invocations
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
 async function getAccessToken(clientId, clientSecret) {
+  const cId = clientId || DEFAULT_CLIENT_ID;
+  const cSecret = clientSecret || DEFAULT_CLIENT_SECRET;
+
   const now = Date.now();
   if (cachedToken && tokenExpiresAt > now + 60000) {
     return cachedToken;
@@ -22,8 +28,8 @@ async function getAccessToken(clientId, clientSecret) {
     },
     body: new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret
+      client_id: cId,
+      client_secret: cSecret
     })
   });
 
@@ -114,26 +120,19 @@ export default async function handler(req, res) {
     const body = req.method === 'POST' ? req.body : req.query;
     const { action, url, clientId: reqClientId, clientSecret: reqClientSecret } = body || {};
 
-    const clientId = reqClientId || process.env.ML_CLIENT_ID;
-    const clientSecret = reqClientSecret || process.env.ML_CLIENT_SECRET;
+    const clientId = reqClientId || process.env.ML_CLIENT_ID || DEFAULT_CLIENT_ID;
+    const clientSecret = reqClientSecret || process.env.ML_CLIENT_SECRET || DEFAULT_CLIENT_SECRET;
 
-    // Ação 1: Testar Conexão com as Credenciais
+    // Ação 1: Testar Conexão Oficial
     if (action === 'test_connection') {
-      if (!clientId || !clientSecret) {
-        return res.status(400).json({
-          success: false,
-          message: 'Informe o App ID (Client ID) e o Client Secret para testar a conexão.'
-        });
-      }
-
       await getAccessToken(clientId, clientSecret);
       return res.status(200).json({
         success: true,
-        message: 'Conexão com a API Oficial do Mercado Livre realizada com sucesso! 🎉'
+        message: 'Conexão com a API Oficial do Mercado Livre realizada com sucesso! Autenticação aprovada. 🚀'
       });
     }
 
-    // Ação 2: Consultar Produto e Gerar Link com Cashback
+    // Ação 2: Consultar Produto
     if (!url) {
       return res.status(400).json({
         success: false,
@@ -143,7 +142,7 @@ export default async function handler(req, res) {
 
     let resolvedUrl = url.trim();
 
-    // Se for link encurtado (meli.la ou mercadolivre.com/sec/), tenta resolver o redirecionamento
+    // Se for link encurtado (meli.la ou mercadolivre.com/sec/), segue o redirecionamento
     if (/meli\.la|mercadolivre\.com\/sec/i.test(resolvedUrl)) {
       try {
         const headRes = await fetch(resolvedUrl, {
@@ -160,81 +159,109 @@ export default async function handler(req, res) {
     }
 
     const itemId = extractMlbId(resolvedUrl);
+    const slugTitle = extractSlugTitle(resolvedUrl);
+    const token = await getAccessToken(clientId, clientSecret);
 
-    // Se tivermos as credenciais do Mercado Livre e um ID de anúncio válido
-    if (clientId && clientSecret && itemId) {
+    let productTitle = slugTitle;
+    let productPrice = null;
+    let productThumb = null;
+    let rawCategoryName = '';
+    let foundViaApi = false;
+
+    // 1. Tenta buscar como Produto de Catálogo direto
+    if (itemId) {
       try {
-        const token = await getAccessToken(clientId, clientSecret);
-
-        // Busca dados oficiais do item na API
-        const itemRes = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const prodRes = await fetch(`https://api.mercadolibre.com/products/${itemId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          productTitle = prodData.name || productTitle;
+          productThumb = prodData.pictures?.[0]?.url;
 
-        if (itemRes.ok) {
-          const item = await itemRes.json();
-          let rawCategoryName = '';
-
-          // Busca categoria na API
-          if (item.category_id) {
-            try {
-              const catRes = await fetch(`https://api.mercadolibre.com/categories/${item.category_id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (catRes.ok) {
-                const catData = await catRes.json();
-                rawCategoryName = catData.name;
-              }
-            } catch {}
-          }
-
-          const category = mapCategoryCommission(rawCategoryName, item.title);
-          const price = Number(item.price) || 0;
-          const totalCommission = (price * category.rate) / 100;
-          const ownerProfit = totalCommission * 0.60;
-          const userCashback = totalCommission * 0.40;
-          const userRatePct = price > 0 ? `${((userCashback / price) * 100).toFixed(1).replace('.', ',')}%` : `${(category.rate * 0.40).toFixed(1).replace('.', ',')}%`;
-
-          const affiliateLink = generateAffiliateUrl(item.permalink || resolvedUrl);
-          const thumbnail = item.pictures?.[0]?.secure_url || item.thumbnail?.replace('http://', 'https://');
-
-          return res.status(200).json({
-            success: true,
-            source: 'ml_official_api',
-            itemId: item.id,
-            title: item.title,
-            price,
-            thumbnail,
-            categoryName: category.name,
-            categoryIcon: category.icon,
-            marketplaceRate: category.rate,
-            totalCommission,
-            ownerProfit,
-            cashback: userCashback,
-            cashbackRatePct: userRatePct,
-            affiliateLink,
-            originalLink: resolvedUrl
+          // Busca as ofertas deste produto para pegar o preço oficial
+          const itemsRes = await fetch(`https://api.mercadolibre.com/products/${itemId}/items`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
+          if (itemsRes.ok) {
+            const itemsData = await itemsRes.json();
+            if (itemsData.results && itemsData.results[0]) {
+              productPrice = Number(itemsData.results[0].price) || null;
+              rawCategoryName = itemsData.results[0].category_id || '';
+              foundViaApi = true;
+            }
+          }
         }
-      } catch (apiErr) {
-        console.warn('API error, falling back to smart parser:', apiErr.message);
-      }
+      } catch {}
     }
 
-    // Fallback inteligente (se as chaves da API ainda não estiverem configuradas)
-    const slugTitle = extractSlugTitle(resolvedUrl);
-    const category = mapCategoryCommission('', slugTitle);
+    // 2. Se não encontrou pelo ID direto, pesquisa pelo título na API oficial de produtos
+    if (!productPrice && slugTitle && slugTitle !== 'Produto Mercado Livre') {
+      try {
+        const query = encodeURIComponent(slugTitle.slice(0, 50));
+        const searchRes = await fetch(`https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${query}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          if (searchData.results && searchData.results[0]) {
+            const matchedProd = searchData.results[0];
+            productTitle = matchedProd.name || productTitle;
+            productThumb = matchedProd.pictures?.[0]?.url || productThumb;
+
+            // Busca preço dos itens deste produto
+            const itemsRes = await fetch(`https://api.mercadolibre.com/products/${matchedProd.id}/items`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (itemsRes.ok) {
+              const itemsData = await itemsRes.json();
+              if (itemsData.results && itemsData.results[0]) {
+                productPrice = Number(itemsData.results[0].price) || null;
+                rawCategoryName = itemsData.results[0].category_id || '';
+                foundViaApi = true;
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const category = mapCategoryCommission(rawCategoryName, productTitle);
     const affiliateLink = generateAffiliateUrl(resolvedUrl);
 
+    if (productPrice && productPrice > 0) {
+      const totalCommission = (productPrice * category.rate) / 100;
+      const ownerProfit = totalCommission * 0.60;
+      const userCashback = totalCommission * 0.40;
+      const userRatePct = `${((userCashback / productPrice) * 100).toFixed(1).replace('.', ',')}%`;
+
+      return res.status(200).json({
+        success: true,
+        source: 'ml_official_api',
+        itemId: itemId || 'MLB_PRODUCT',
+        title: productTitle,
+        price: productPrice,
+        thumbnail: productThumb,
+        categoryName: category.name,
+        categoryIcon: category.icon,
+        marketplaceRate: category.rate,
+        totalCommission,
+        ownerProfit,
+        cashback: userCashback,
+        cashbackRatePct: userRatePct,
+        affiliateLink,
+        originalLink: resolvedUrl
+      });
+    }
+
+    // Fallback: se o produto for anúncio individual que requer preenchimento manual do preço
     return res.status(200).json({
       success: true,
-      source: 'slug_analysis',
+      source: foundViaApi ? 'ml_official_api' : 'slug_analysis',
       itemId: itemId || 'MLB_MANUAL',
-      title: slugTitle,
-      price: null, // Será informado pelo usuário ou confirmado na compra
-      thumbnail: null,
+      title: productTitle,
+      price: null,
+      thumbnail: productThumb,
       categoryName: category.name,
       categoryIcon: category.icon,
       marketplaceRate: category.rate,
