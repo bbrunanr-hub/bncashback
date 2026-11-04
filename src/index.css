@@ -162,6 +162,146 @@ body {
 }
 .paste-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(249,115,22,0.4); }
 
+.clear-btn {
+  padding: 12px 14px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1.5px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.clear-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+.product-price-section {
+  margin-top: 14px;
+  padding: 14px;
+  background: #F8FAFC;
+  border: 1.5px dashed #CBD5E1;
+  border-radius: var(--radius-sm);
+}
+
+.product-price-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.product-price-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  background: #fff7ed;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #fed7aa;
+}
+
+.product-price-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.price-currency {
+  position: absolute;
+  left: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.product-price-input {
+  width: 100%;
+  padding: 11px 36px 11px 44px;
+  border-radius: var(--radius-sm);
+  border: 2px solid #E2E8F0;
+  background: #ffffff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.product-price-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+.clear-price-btn {
+  position: absolute;
+  right: 10px;
+  background: #E2E8F0;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-price-btn:hover {
+  background: #CBD5E1;
+  color: #1E293B;
+}
+
+.quick-price-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.qpc-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.qpc-chip {
+  padding: 4px 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.qpc-chip:hover {
+  background: #fff7ed;
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
 .generate-btn {
   width: 100%;
   margin-top: 12px;

@@ -19,9 +19,9 @@ const SHOPEE_AFFILIATE_ID = 'an_18335281102'
 const SHOPEE_CAMPAIGN_ID = 'id_52MZIjcVHTp'
 
 // ---- Category & Proportional Commission Structure ----
-// Proporção de divisão da comissão: 65% para você (monetização) e 35% para o usuário (cashback)
-export const USER_COMMISSION_SHARE = 0.35 // 35% para o usuário
-export const OWNER_COMMISSION_SHARE = 0.65 // 65% seu lucro líquido
+// Proporção de divisão da comissão: 60% para você (monetização) e 40% para o usuário (cashback)
+export const USER_COMMISSION_SHARE = 0.40 // 40% para o usuário
+export const OWNER_COMMISSION_SHARE = 0.60 // 60% seu lucro líquido
 
 export interface CategoryCommission {
   key: string
@@ -29,7 +29,7 @@ export interface CategoryCommission {
   icon: string
   mlCommission: number      // % paga pelo Mercado Livre
   shopeeCommission: number  // % paga pela Shopee
-  cashbackShare: number     // 35% da comissão para o usuário
+  cashbackShare: number     // 40% da comissão para o usuário
 }
 
 export const CATEGORIES: Record<string, CategoryCommission> = {
@@ -124,8 +124,8 @@ export interface Purchase {
   affiliateLink: string
   price: number
   totalCommission: number   // 100% da comissão gerada pelo marketplace
-  ownerProfit: number       // 65% seu lucro
-  cashback: number          // 35% cashback do usuário
+  ownerProfit: number       // 60% seu lucro líquido
+  cashback: number          // 40% cashback do usuário
   cashbackRatePct: string
   categoryName: string
   categoryIcon: string
@@ -383,6 +383,7 @@ function HomePage({
 }) {
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
+  const [priceInput, setPriceInput] = useState('')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
@@ -398,26 +399,67 @@ function HomePage({
   useEffect(() => {
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const pending = purchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
-    const found = purchases.reduce((a, p) => a + p.cashback, 0)
     setTotalPending(pending)
-    setTotalFound(found)
+    setTotalFound(0) // Reseta na abertura: valor encontrado exibe o cashback do link gerado no momento
   }, [])
 
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      setLinkInput(text.trim())
-      // Auto detect platform
-      const detected = detectPlatform(text)
-      if (detected) setPlatform(detected)
+      const trimmed = text.trim()
+
+      // Reseta valores anteriores ao colar novo link
+      setTotalFound(0)
+      setAffiliateLink('')
+      setCashbackAmount(0)
+      setProcessState('idle')
+
+      // Detecta URL e tenta extrair preço se houver no texto compartilhado
+      const urlMatch = trimmed.match(/https?:\/\/[^\s]+/i)
+      if (urlMatch) {
+        setLinkInput(urlMatch[0])
+        const detected = detectPlatform(urlMatch[0])
+        if (detected) setPlatform(detected)
+
+        const priceMatch = trimmed.match(/R\$\s*([0-9]+[.,]?[0-9]*)/i)
+        if (priceMatch && !priceInput) {
+          setPriceInput(priceMatch[1].replace('.', ','))
+        }
+      } else {
+        setLinkInput(trimmed)
+        const detected = detectPlatform(trimmed)
+        if (detected) setPlatform(detected)
+      }
+      toast.info('Link colado! Informe o valor do produto para o cálculo exato.')
     } catch {
       toast.error('Permita o acesso à área de transferência para colar')
     }
   }
 
+  const handleClear = () => {
+    setLinkInput('')
+    setPriceInput('')
+    setProcessState('idle')
+    setAffiliateLink('')
+    setCashbackAmount(0)
+    setTotalFound(0)
+    setCurrentPurchaseId('')
+    setHasNotifiedPurchase(false)
+    toast.info('Campos limpos. Cole o novo link!')
+  }
+
   const handleGenerate = async () => {
     if (!linkInput.trim()) {
       toast.error('Cole um link do Mercado Livre ou Shopee primeiro!')
+      return
+    }
+
+    // Trata e valida o preço do produto para cálculo 100% exato
+    const cleanPrice = priceInput.trim().replace('R$', '').trim().replace(',', '.')
+    const productPrice = parseFloat(cleanPrice)
+
+    if (isNaN(productPrice) || productPrice <= 0) {
+      toast.error('Por favor, informe o valor do produto (ex: 21,25) para calcular o cashback exato!')
       return
     }
 
@@ -429,40 +471,38 @@ function HomePage({
     const activePlatform = detected || platform
 
     // Validate URL
-    try { new URL(linkInput) } catch {
+    try { new URL(linkInput.trim()) } catch {
       toast.error('Link inválido. Certifique-se de colar o link completo.')
       return
     }
 
     setProcessState('processing')
     setAffiliateLink('')
+    setTotalFound(0)
 
     // Simulate processing delay (robot working)
-    await new Promise(r => setTimeout(r, 1800))
+    await new Promise(r => setTimeout(r, 1200))
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
     const category = detectCategory(linkInput.trim())
     const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
 
-    // Estima o valor do produto
-    const estimatedPrice = 120 + Math.random() * 380
-
     // 1) Primeiro valor gerado: comissão bruta total do marketplace (100%)
-    const totalCommission = (estimatedPrice * marketplaceRate) / 100
+    const totalCommission = (productPrice * marketplaceRate) / 100
 
-    // 2) Separação fixa e segura: 65% seu lucro e 35% cashback do usuário
-    const ownerProfit = totalCommission * OWNER_COMMISSION_SHARE // 65%
-    const userCashback = totalCommission * USER_COMMISSION_SHARE // 35%
+    // 2) Separação fixa e segura: 60% seu lucro líquido e 40% cashback do usuário
+    const ownerProfit = totalCommission * OWNER_COMMISSION_SHARE // 60%
+    const userCashback = totalCommission * USER_COMMISSION_SHARE // 40%
 
-    // 3) Porcentagem final do cashback que aparece para o usuário
-    const userRatePct = `${((userCashback / estimatedPrice) * 100).toFixed(1).replace('.', ',')}%`
+    // 3) Porcentagem final do cashback que aparece para o usuário sobre o valor do produto
+    const userRatePct = `${((userCashback / productPrice) * 100).toFixed(1).replace('.', ',')}%`
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
     setAffiliateLink(generated)
     setCashbackAmount(userCashback)
-    setTotalFound(prev => prev + userCashback)
-    // O saldo aguardando NÃO aumenta aqui: só aumenta após a compra no marketplace!
+    // O Valor Encontrado é resetado e configurado EXATAMENTE para o cashback deste link!
+    setTotalFound(userCashback)
     setProcessState('done')
 
     // Salva a compra inicialmente com status 'link_created'
@@ -474,7 +514,7 @@ function HomePage({
       productName: activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`,
       originalLink: linkInput.trim(),
       affiliateLink: generated,
-      price: estimatedPrice,
+      price: productPrice,
       totalCommission,
       ownerProfit,
       cashback: userCashback,
@@ -518,9 +558,11 @@ function HomePage({
 
   const handleReset = () => {
     setLinkInput('')
+    setPriceInput('')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
+    setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
   }
@@ -587,23 +629,88 @@ function HomePage({
             type="url"
             placeholder={platform === 'ml' ? 'Ex: https://www.mercadolivre.com.br/...' : 'Ex: https://shopee.com.br/...'}
             value={linkInput}
-            onChange={e => setLinkInput(e.target.value)}
+            onChange={e => {
+              setLinkInput(e.target.value)
+              if (!e.target.value.trim()) {
+                setTotalFound(0)
+                setAffiliateLink('')
+                setProcessState('idle')
+              }
+            }}
             onKeyDown={e => {
               if (e.key === 'Enter') handleGenerate()
             }}
             disabled={processState === 'processing'}
           />
+          {(linkInput || priceInput) && (
+            <button
+              type="button"
+              className="clear-btn"
+              onClick={handleClear}
+              title="Limpar campos"
+              disabled={processState === 'processing'}
+            >
+              ✕ Limpar
+            </button>
+          )}
           <button className="paste-btn" onClick={handlePaste} disabled={processState === 'processing'}>
             Colar
           </button>
         </div>
+
+        {/* Campo de Preço do Produto para cálculo exato */}
+        <div className="product-price-section">
+          <div className="product-price-label">
+            <span>Valor do produto no site:</span>
+            <span className="product-price-hint">Divisão: 60% você / 40% usuário</span>
+          </div>
+          <div className="product-price-wrap">
+            <span className="price-currency">R$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="product-price-input"
+              placeholder="Ex: 21,25"
+              value={priceInput}
+              onChange={e => {
+                setPriceInput(e.target.value)
+                setTotalFound(0) // Reseta o valor encontrado ao alterar o preço
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleGenerate()
+              }}
+              disabled={processState === 'processing'}
+            />
+            {priceInput && (
+              <button
+                type="button"
+                className="clear-price-btn"
+                onClick={() => {
+                  setPriceInput('')
+                  setTotalFound(0)
+                }}
+                title="Limpar valor"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="quick-price-chips">
+            <span className="qpc-label">Exemplos:</span>
+            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('21,25'); setTotalFound(0); }}>R$ 21,25</button>
+            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('50,00'); setTotalFound(0); }}>R$ 50,00</button>
+            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('100,00'); setTotalFound(0); }}>R$ 100,00</button>
+            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('200,00'); setTotalFound(0); }}>R$ 200,00</button>
+          </div>
+        </div>
+
         <button
           className="generate-btn"
           onClick={processState === 'done' ? handleReset : handleGenerate}
           disabled={processState === 'processing'}
         >
           {processState === 'processing' ? (
-            <><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> Processando...</>
+            <><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> Calculando e gerando link...</>
           ) : processState === 'done' ? (
             <><Zap size={18} /> Gerar outro link</>
           ) : (
@@ -1413,18 +1520,18 @@ function AdminPage({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="section-title">Painel Administrativo</div>
-      <div className="section-subtitle">Gestão de Lucro (65%), Cashback (35%), WhatsApp e Saques PIX</div>
+      <div className="section-subtitle">Gestão de Lucro (60%), Cashback (40%), WhatsApp e Saques PIX</div>
 
       {/* Grid de Métricas Financeiras */}
       <div className="admin-metrics-grid">
         <div className="admin-metric-card green">
-          <div className="am-label">💼 Seu Lucro Líquido (65%)</div>
+          <div className="am-label">💼 Seu Lucro Líquido (60%)</div>
           <div className="am-value">{formatCurrency(totalOwnerProfit)}</div>
           <div className="am-sub">{confirmedPurchases.length} compra(s) computada(s)</div>
         </div>
 
         <div className="admin-metric-card blue">
-          <div className="am-label">🎁 Cashback Usuários (35%)</div>
+          <div className="am-label">🎁 Cashback Usuários (40%)</div>
           <div className="am-value">{formatCurrency(totalUserCashback)}</div>
           <div className="am-sub">Total computado: {formatCurrency(totalGrossCommissions)}</div>
         </div>
@@ -1605,11 +1712,11 @@ function AdminPage({ onBack }: { onBack: () => void }) {
                       <span className="as-s-val">{formatCurrency(gross)}</span>
                     </div>
                     <div className="as-split-item owner">
-                      <span className="as-s-label">Seu Lucro (65%)</span>
+                      <span className="as-s-label">Seu Lucro (60%)</span>
                       <span className="as-s-val">{formatCurrency(owner)}</span>
                     </div>
                     <div className="as-split-item user">
-                      <span className="as-s-label">Cashback Usuário (35%)</span>
+                      <span className="as-s-label">Cashback Usuário (40%)</span>
                       <span className="as-s-val">{formatCurrency(p.cashback)}</span>
                     </div>
                   </div>
