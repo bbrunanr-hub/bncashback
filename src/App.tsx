@@ -695,13 +695,6 @@ function HomePage({
               </button>
             )}
           </div>
-          <div className="quick-price-chips">
-            <span className="qpc-label">Exemplos:</span>
-            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('21,25'); setTotalFound(0); }}>R$ 21,25</button>
-            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('50,00'); setTotalFound(0); }}>R$ 50,00</button>
-            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('100,00'); setTotalFound(0); }}>R$ 100,00</button>
-            <button type="button" className="qpc-chip" onClick={() => { setPriceInput('200,00'); setTotalFound(0); }}>R$ 200,00</button>
-          </div>
         </div>
 
         <button
@@ -1914,8 +1907,68 @@ function AdminPage({ onBack }: { onBack: () => void }) {
   )
 }
 
+// ---- Maintenance Page ----
+function MaintenancePage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
+  return (
+    <div className="maintenance-container">
+      {/* Top Brand */}
+      <div className="maintenance-brand">
+        <LogoIcon />
+        <div className="logo-text" style={{ marginTop: 8 }}>
+          <span className="bn">BN</span><span className="cb">cashback</span>
+        </div>
+      </div>
+
+      {/* Main Notice Card */}
+      <div className="maintenance-card">
+        <div className="maintenance-icon-badge">
+          ⚙️
+        </div>
+        <div className="maintenance-tag">Atualização de Sistema</div>
+        <h1 className="maintenance-title">Estamos em Manutenção Temporária</h1>
+        <p className="maintenance-subtitle">
+          Estamos atualizando nossos robôs e integrando a comunicação direta com a <strong>Shopee</strong> e o <strong>Mercado Livre</strong> para garantir a precisão máxima das comissões e do seu cashback.
+        </p>
+
+        <div className="maintenance-info-box">
+          <div className="mib-item">
+            <span className="mib-bullet">🔒</span>
+            <span>Seus dados, cadastros e saldos continuam 100% salvos e protegidos.</span>
+          </div>
+          <div className="mib-item">
+            <span className="mib-bullet">🚀</span>
+            <span>Retornaremos em breve com o cálculo 100% automático!</span>
+          </div>
+          <div className="mib-item">
+            <span className="mib-bullet">✨</span>
+            <span>Agradecemos a sua compreensão e paciência.</span>
+          </div>
+        </div>
+
+        <div className="maintenance-timer-hint">
+          Voltaremos em breve com tudo funcionando perfeitamente!
+        </div>
+      </div>
+
+      {/* Footer & Discreet Admin Link */}
+      <footer className="maintenance-footer">
+        <button
+          type="button"
+          className="maintenance-admin-btn"
+          onClick={onOpenAdmin}
+          title="Acesso da Administradora"
+        >
+          <Lock size={13} /> Área da Administradora
+        </button>
+      </footer>
+    </div>
+  )
+}
+
 // ---- Main App ----
 export default function App() {
+  const [isMaintenance] = useState(true)
+  const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
@@ -1941,6 +1994,53 @@ export default function App() {
       allUsers.unshift(user)
     }
     localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
+  }
+
+  // Se o site estiver em manutenção e não for a tela de admin
+  if (isMaintenance && !isAdminOpen) {
+    return (
+      <>
+        <Toaster position="top-center" richColors />
+        <MaintenancePage onOpenAdmin={() => setIsAdminOpen(true)} />
+      </>
+    )
+  }
+
+  // Se a administradora estiver no painel restrito durante a manutenção
+  if (isAdminOpen) {
+    return (
+      <>
+        <Toaster position="top-center" richColors />
+        <div className="app-shell">
+          <header className="app-header">
+            <div className="header-logo-container">
+              <div className="header-logo">
+                <LogoIcon />
+                <div className="logo-text">
+                  <span className="bn">BN</span><span className="cb">cashback</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, background: '#fee2e2', color: '#dc2626', padding: '3px 8px', borderRadius: 999, fontWeight: 800 }}>
+                  SITE FORA DO AR (MANUTENÇÃO)
+                </span>
+                <button
+                  className="admin-header-btn"
+                  onClick={() => setIsAdminOpen(false)}
+                  title="Voltar para tela de manutenção"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="header-tagline">Painel de Controle Exclusivo da Administradora</div>
+          </header>
+          <main className="main-content">
+            <AdminPage onBack={() => setIsAdminOpen(false)} />
+          </main>
+        </div>
+      </>
+    )
   }
 
   const navItems = [
