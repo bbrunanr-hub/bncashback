@@ -54,15 +54,32 @@ function extractSlugTitle(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
     const parts = parsed.pathname.split('/').filter(Boolean);
-    const lastPart = parts.find(p => /MLB/i.test(p)) || parts[parts.length - 1];
-    if (lastPart) {
-      const cleaned = lastPart
-        .replace(/^MLB-?\d+-?/i, '')
-        .replace(/-_JM$/i, '')
-        .replace(/-/g, ' ');
-      if (cleaned.trim()) {
-        return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    // Formato /nome-do-produto/p/MLB12345
+    const pIndex = parts.indexOf('p');
+    if (pIndex > 0) {
+      const slug = parts[pIndex - 1];
+      const cleaned = slug.replace(/-/g, ' ').trim();
+      if (cleaned) return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    // Formato /MLB-12345678-nome-do-produto-_JM ou /MLB12345678-nome
+    for (const part of parts) {
+      if (/MLB/i.test(part)) {
+        const cleaned = part
+          .replace(/^MLB-?\d+-?/i, '')
+          .replace(/-_JM$/i, '')
+          .replace(/-/g, ' ')
+          .trim();
+        if (cleaned) return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       }
+    }
+
+    // Formato com slug mais longo
+    const longest = parts.reduce((acc, cur) => cur.length > acc.length ? cur : acc, '');
+    if (longest && longest.length > 5) {
+      const cleaned = longest.replace(/-/g, ' ').trim();
+      return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
   } catch {}
   return 'Produto Mercado Livre';
@@ -214,35 +231,54 @@ export default async function handler(req, res) {
       } catch {}
     }
 
-    // 2. Se não encontrou pelo ID direto, pesquisa pelo título na API oficial de produtos
+    // 2. Se não encontrou pelo ID direto, pesquisa pelo título na API oficial de produtos com fallback em camadas
     if (!productPrice && slugTitle && slugTitle !== 'Produto Mercado Livre') {
-      try {
-        const query = encodeURIComponent(slugTitle.slice(0, 50));
-        const searchRes = await fetch(`https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${query}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (searchData.results && searchData.results[0]) {
-            const matchedProd = searchData.results[0];
-            productTitle = matchedProd.name || productTitle;
-            productThumb = matchedProd.pictures?.[0]?.url || productThumb;
+      const cleanWords = slugTitle
+        .replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚãõÃÕâêôÂÊÔçÇ\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !/^(de|da|do|para|com|em)$/i.test(w));
 
-            // Busca preço dos itens deste produto
-            const itemsRes = await fetch(`https://api.mercadolibre.com/products/${matchedProd.id}/items`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (itemsRes.ok) {
-              const itemsData = await itemsRes.json();
-              if (itemsData.results && itemsData.results[0]) {
-                productPrice = Number(itemsData.results[0].price) || null;
-                rawCategoryName = itemsData.results[0].category_id || '';
-                foundViaApi = true;
-              }
+      const searchQueries = [
+        slugTitle.slice(0, 60),
+        cleanWords.slice(0, 5).join(' '),
+        cleanWords.slice(0, 3).join(' ')
+      ].filter(Boolean);
+
+      const uniqueQueries = [...new Set(searchQueries)];
+
+      for (const q of uniqueQueries) {
+        if (productPrice) break;
+        try {
+          const encoded = encodeURIComponent(q);
+          const searchRes = await fetch(`https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encoded}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const topProducts = (searchData.results || []).slice(0, 6);
+
+            for (const matchedProd of topProducts) {
+              if (productPrice) break;
+              try {
+                const itemsRes = await fetch(`https://api.mercadolibre.com/products/${matchedProd.id}/items`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (itemsRes.ok) {
+                  const itemsData = await itemsRes.json();
+                  if (itemsData.results && itemsData.results[0] && itemsData.results[0].price) {
+                    productPrice = Number(itemsData.results[0].price) || null;
+                    productTitle = matchedProd.name || productTitle;
+                    productThumb = matchedProd.pictures?.[0]?.url || productThumb;
+                    rawCategoryName = itemsData.results[0].category_id || '';
+                    foundViaApi = true;
+                    break;
+                  }
+                }
+              } catch {}
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
     }
 
     const category = mapCategoryCommission(rawCategoryName, productTitle);

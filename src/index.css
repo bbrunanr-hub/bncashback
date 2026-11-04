@@ -47,31 +47,58 @@ body {
 
 .app-header {
   background: linear-gradient(135deg, #fff9f0 0%, #fff 100%);
-  padding: 24px 20px 16px;
+  padding: 10px 16px 8px;
   text-align: center;
   border-bottom: 1px solid var(--border);
+}
+
+.header-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.security-badge-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.08);
+}
+
+.header-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .header-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 8px;
 }
 
-.logo-text { font-size: 28px; font-weight: 900; line-height: 1; }
+.logo-text { font-size: 24px; font-weight: 900; line-height: 1; }
 .logo-text span.bn { color: var(--gold); }
 .logo-text span.cb { color: var(--primary); }
-.header-tagline { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.header-tagline { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
 
-.main-content { flex: 1; overflow-y: auto; padding: 0 0 90px; }
+.main-content { flex: 1; overflow-y: auto; padding: 0 0 80px; }
 
 .page {
-  padding: 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   animation: fadeUp 0.3s ease;
 }
 
@@ -372,6 +399,48 @@ body {
 }
 
 .result-card-value { font-size: 22px; font-weight: 900; line-height: 1.2; }
+
+.info-box-featured {
+  background: #EFF6FF;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid #93C5FD;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.ibf-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ibf-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1E3A8A;
+}
+
+.ibf-text {
+  font-size: 12.5px;
+  color: #1E40AF;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.ibf-text strong {
+  color: #1D4ED8;
+  font-weight: 800;
+  background: #DBEAFE;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.notify-purchase-container {
+  margin-top: 10px;
+}
 
 .info-box {
   background: #EFF6FF;

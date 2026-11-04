@@ -4,7 +4,7 @@ import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
   Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
   Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
-  Share2, Download, Trash2, Edit3, Gift, Clock
+  Share2, Download, Trash2, Edit3, Gift, Clock, ShieldCheck
 } from 'lucide-react'
 import './index.css'
 
@@ -658,8 +658,8 @@ function HomePage({
         <div className="referral-top-banner" onClick={onOpenRegister}>
           <div className="rtb-icon">🎁</div>
           <div className="rtb-content">
-            <div className="rtb-title">Cadastre seu WhatsApp & Ganhe Vantagens!</div>
-            <div className="rtb-sub">Indique 10 amigos para ganhar <strong>bônus exclusivos</strong> no seu cashback. <u>Toque para cadastrar ➔</u></div>
+            <div className="rtb-title">Cadastre 10 amigos e aumente seus cashbacks por 6 meses</div>
+            <div className="rtb-sub">Indique 10 amigos e ganhe <strong>bônus exclusivos</strong> no seu cashback. <u>Toque para cadastrar ➔</u></div>
           </div>
         </div>
       ) : (
@@ -773,7 +773,9 @@ function HomePage({
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" strokeWidth="1.5"/><path d="M5 7h4M7 5v4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
             Valor Encontrado
           </div>
-          <div className="result-card-value">{formatCurrency(totalFound)}</div>
+          <div className="result-card-value">
+            {totalFound > 0 ? formatCurrency(totalFound) : (processState === 'done' && cashbackRatePct ? `${cashbackRatePct} de volta` : 'R$ 0,00')}
+          </div>
         </div>
         <div className="result-card orange">
           <div className="result-card-header">
@@ -853,15 +855,8 @@ function HomePage({
               </div>
             </div>
 
-            {/* Aviso de Futuro Saldo & Botão de Notificação */}
-            <div className="future-balance-box">
-              <div className="fbb-info">
-                <span className="fbb-badge">💰 Futuro Saldo: {cashbackAmount > 0 ? formatCurrency(cashbackAmount) : `Até ${cashbackRatePct}`}</span>
-                <span className="fbb-note">({cashbackRatePct} de volta após a compra)</span>
-              </div>
-              <p className="fbb-text">
-                Finalize sua compra pelo link acima. Assim que computada pelo marketplace, o valor é adicionado ao seu Saldo Aguardando!
-              </p>
+            {/* Botão de Aviso de Compra Realizada */}
+            <div className="notify-purchase-container">
               {hasNotifiedPurchase ? (
                 <div className="fbb-notified">
                   ✅ Compra informada! Aguardando o marketplace computar o pedido.
@@ -872,7 +867,7 @@ function HomePage({
                   className="fbb-notify-btn"
                   onClick={() => handleNotifyPurchase(currentPurchaseId)}
                 >
-                  <ShoppingBag size={14} /> Já comprou pelo link? Clique para avisar!
+                  <ShoppingBag size={15} /> Já comprou pelo link? Clique para avisar!
                 </button>
               )}
             </div>
@@ -888,11 +883,14 @@ function HomePage({
         )}
       </div>
 
-      {/* Info Box */}
-      <div className="info-box">
-        <div className="info-icon">i</div>
-        <div className="info-text">
-          Devido à política de entrega dos marketplaces, precisamos esperar a liberação dos valores após o período de entrega do produto e o direito de arrependimento ou devolução do comprador. Eles fazem isso dentro de <strong>60 dias</strong>.
+      {/* Aviso dos 60 Dias dos Marketplaces */}
+      <div className="info-box-featured">
+        <div className="ibf-header">
+          <Clock size={18} color="#1d4ed8" />
+          <span className="ibf-title">Como funciona o prazo dos 60 dias?</span>
+        </div>
+        <div className="ibf-text">
+          Devido à política de proteção e entrega do <strong>Mercado Livre</strong> e da <strong>Shopee</strong>, o saldo aguardando é confirmado após a entrega do produto e o término do prazo legal de devolução ou arrependimento do comprador. Todo o processo é concluído dentro de <strong>até 60 dias</strong>, momento em que seu valor fica liberado para saque imediato via PIX!
         </div>
       </div>
 
@@ -2333,12 +2331,10 @@ export default function App() {
       <div className="app-shell">
         {/* Header */}
         <header className="app-header">
-          <div className="header-logo-container">
-            <div className="header-logo">
-              <LogoIcon />
-              <div className="logo-text">
-                <span className="bn">BN</span><span className="cb">cashback</span>
-              </div>
+          <div className="header-top-bar">
+            <div className="security-badge-header">
+              <ShieldCheck size={14} color="#16a34a" />
+              <span>App totalmente seguro</span>
             </div>
             {/* Atalho discreto de Admin */}
             <button
@@ -2346,8 +2342,16 @@ export default function App() {
               onClick={() => setActiveTab('admin')}
               title="Painel da Administradora"
             >
-              <Shield size={16} />
+              <Shield size={14} />
             </button>
+          </div>
+          <div className="header-logo-container">
+            <div className="header-logo">
+              <LogoIcon />
+              <div className="logo-text">
+                <span className="bn">BN</span><span className="cb">cashback</span>
+              </div>
+            </div>
           </div>
           <div className="header-tagline">Compre, ganhe cashback! 🎯</div>
         </header>
