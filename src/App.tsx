@@ -384,6 +384,9 @@ function HomePage({
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
   const [priceInput, setPriceInput] = useState('')
+  const [productTitle, setProductTitle] = useState('')
+  const [productImage, setProductImage] = useState('')
+  const [apiSource, setApiSource] = useState<'none' | 'ml_api' | 'manual'>('none')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
@@ -439,6 +442,9 @@ function HomePage({
   const handleClear = () => {
     setLinkInput('')
     setPriceInput('')
+    setProductTitle('')
+    setProductImage('')
+    setApiSource('none')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
@@ -451,15 +457,6 @@ function HomePage({
   const handleGenerate = async () => {
     if (!linkInput.trim()) {
       toast.error('Cole um link do Mercado Livre ou Shopee primeiro!')
-      return
-    }
-
-    // Trata e valida o preço do produto para cálculo 100% exato
-    const cleanPrice = priceInput.trim().replace('R$', '').trim().replace(',', '.')
-    const productPrice = parseFloat(cleanPrice)
-
-    if (isNaN(productPrice) || productPrice <= 0) {
-      toast.error('Por favor, informe o valor do produto (ex: 21,25) para calcular o cashback exato!')
       return
     }
 
@@ -480,38 +477,119 @@ function HomePage({
     setAffiliateLink('')
     setTotalFound(0)
 
-    // Simulate processing delay (robot working)
-    await new Promise(r => setTimeout(r, 1200))
+    // Se for Mercado Livre, tenta consultar a API Oficial primeiro
+    if (activePlatform === 'ml') {
+      const mlClientId = localStorage.getItem('bn_ml_client_id') || ''
+      const mlClientSecret = localStorage.getItem('bn_ml_client_secret') || ''
+
+      try {
+        const res = await fetch('/api/mercado-livre', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: linkInput.trim(),
+            clientId: mlClientId,
+            clientSecret: mlClientSecret
+          })
+        })
+
+        if (res.ok) {
+          const apiData = await res.json()
+          if (apiData.success && apiData.price && apiData.price > 0) {
+            const price = apiData.price
+            const catRate = apiData.marketplaceRate || 12
+            const catObj: CategoryCommission = {
+              key: 'ml_api',
+              name: apiData.categoryName || 'Moda & Outros',
+              icon: apiData.categoryIcon || '📦',
+              mlCommission: catRate,
+              shopeeCommission: 10,
+              cashbackShare: USER_COMMISSION_SHARE
+            }
+
+            setDetectedCategory(catObj)
+            setCashbackRatePct(apiData.cashbackRatePct)
+            setAffiliateLink(apiData.affiliateLink)
+            setCashbackAmount(apiData.cashback)
+            setTotalFound(apiData.cashback)
+            setPriceInput(price.toFixed(2).replace('.', ','))
+            setProductTitle(apiData.title)
+            setProductImage(apiData.thumbnail || '')
+            setApiSource('ml_api')
+            setProcessState('done')
+
+            const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+            const newId = crypto.randomUUID()
+            const newPurchase: Purchase = {
+              id: newId,
+              platform: 'ml',
+              productName: apiData.title,
+              originalLink: linkInput.trim(),
+              affiliateLink: apiData.affiliateLink,
+              price,
+              totalCommission: apiData.totalCommission,
+              ownerProfit: apiData.ownerProfit,
+              cashback: apiData.cashback,
+              cashbackRatePct: apiData.cashbackRatePct,
+              categoryName: apiData.categoryName,
+              categoryIcon: apiData.categoryIcon,
+              status: 'link_created',
+              date: new Date().toLocaleDateString('pt-BR'),
+              userName: currentUser?.name,
+              userWhatsapp: currentUser?.whatsapp,
+            }
+            purchases.unshift(newPurchase)
+            localStorage.setItem('bn_purchases', JSON.stringify(purchases))
+            setCurrentPurchaseId(newId)
+            setHasNotifiedPurchase(false)
+
+            toast.success('Preço e produto consultados na API do Mercado Livre! 🎉')
+            return
+          } else if (apiData.title) {
+            setProductTitle(apiData.title)
+          }
+        }
+      } catch (err) {
+        console.warn('API ML call notice:', err)
+      }
+    }
+
+    // Se a API não retornou o preço, verifica o valor informado
+    const cleanPrice = priceInput.trim().replace('R$', '').trim().replace(',', '.')
+    const productPrice = parseFloat(cleanPrice)
+
+    if (isNaN(productPrice) || productPrice <= 0) {
+      setProcessState('idle')
+      toast.info('Por favor, informe o valor do produto no site para calcular o cashback exato.')
+      return
+    }
+
+    // Processamento com valor informado
+    await new Promise(r => setTimeout(r, 800))
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
     const category = detectCategory(linkInput.trim())
     const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
 
-    // 1) Primeiro valor gerado: comissão bruta total do marketplace (100%)
     const totalCommission = (productPrice * marketplaceRate) / 100
-
-    // 2) Separação fixa e segura: 60% seu lucro líquido e 40% cashback do usuário
     const ownerProfit = totalCommission * OWNER_COMMISSION_SHARE // 60%
     const userCashback = totalCommission * USER_COMMISSION_SHARE // 40%
-
-    // 3) Porcentagem final do cashback que aparece para o usuário sobre o valor do produto
     const userRatePct = `${((userCashback / productPrice) * 100).toFixed(1).replace('.', ',')}%`
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
     setAffiliateLink(generated)
     setCashbackAmount(userCashback)
-    // O Valor Encontrado é resetado e configurado EXATAMENTE para o cashback deste link!
     setTotalFound(userCashback)
+    setApiSource('manual')
     setProcessState('done')
 
-    // Salva a compra inicialmente com status 'link_created'
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const newId = crypto.randomUUID()
     const newPurchase: Purchase = {
       id: newId,
       platform: activePlatform,
-      productName: activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`,
+      productName: productTitle || (activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`),
       originalLink: linkInput.trim(),
       affiliateLink: generated,
       price: productPrice,
@@ -521,7 +599,7 @@ function HomePage({
       cashbackRatePct: userRatePct,
       categoryName: category.name,
       categoryIcon: category.icon,
-      status: 'link_created', // Status inicial: apenas link gerado
+      status: 'link_created',
       date: new Date().toLocaleDateString('pt-BR'),
       userName: currentUser?.name,
       userWhatsapp: currentUser?.whatsapp,
@@ -559,6 +637,9 @@ function HomePage({
   const handleReset = () => {
     setLinkInput('')
     setPriceInput('')
+    setProductTitle('')
+    setProductImage('')
+    setApiSource('none')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
@@ -765,6 +846,28 @@ function HomePage({
 
         {affiliateLink ? (
           <>
+            {/* Produto Oficial Detectado (API Mercado Livre) */}
+            {(productImage || productTitle) && (
+              <div className="api-product-preview-card">
+                {productImage ? (
+                  <img src={productImage} alt={productTitle} className="appc-thumb" />
+                ) : (
+                  <div className="appc-icon-placeholder">{detectedCategory.icon}</div>
+                )}
+                <div className="appc-details">
+                  {apiSource === 'ml_api' && (
+                    <div className="appc-source-badge">
+                      <span className="appc-dot"></span> Dados Oficiais da API Mercado Livre
+                    </div>
+                  )}
+                  <div className="appc-title">{productTitle}</div>
+                  {priceInput && (
+                    <div className="appc-price">Preço Oficial: <strong>R$ {priceInput}</strong></div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Category & Final Cashback Info */}
             <div className="category-info-box">
               <div className="category-badge">
@@ -1338,14 +1441,28 @@ function SettingsPage({
 }
 
 // ---- Admin Page (Painel da Administradora) ----
-function AdminPage({ onBack }: { onBack: () => void }) {
+function AdminPage({
+  onBack,
+  isMaintenance,
+  onToggleMaintenance
+}: {
+  onBack: () => void
+  isMaintenance: boolean
+  onToggleMaintenance: () => void
+}) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [allUsers, setAllUsers] = useState<UserProfile[]>([])
   const [userSearch, setUserSearch] = useState('')
-  const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'users' | 'automation'>('withdrawals')
+  const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'users' | 'integrations' | 'automation'>('withdrawals')
+
+  // Credenciais e Teste da API Mercado Livre
+  const [mlClientId, setMlClientId] = useState('')
+  const [mlClientSecret, setMlClientSecret] = useState('')
+  const [isTestingMl, setIsTestingMl] = useState(false)
+  const [mlTestResult, setMlTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
     const isAuth = sessionStorage.getItem('bn_admin_auth') === 'true'
@@ -1356,7 +1473,42 @@ function AdminPage({ onBack }: { onBack: () => void }) {
     setPurchases(p)
     setWithdrawals(w)
     setAllUsers(u)
+    setMlClientId(localStorage.getItem('bn_ml_client_id') || '')
+    setMlClientSecret(localStorage.getItem('bn_ml_client_secret') || '')
   }, [])
+
+  const handleTestMlConnection = async () => {
+    if (!mlClientId.trim() || !mlClientSecret.trim()) {
+      toast.error('Informe o App ID e o Client Secret primeiro!')
+      return
+    }
+    setIsTestingMl(true)
+    setMlTestResult(null)
+    try {
+      const res = await fetch('/api/mercado-livre', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'test_connection',
+          clientId: mlClientId.trim(),
+          clientSecret: mlClientSecret.trim()
+        })
+      })
+      const data = await res.json()
+      setMlTestResult(data)
+      if (data.success) {
+        toast.success(data.message)
+        localStorage.setItem('bn_ml_client_id', mlClientId.trim())
+        localStorage.setItem('bn_ml_client_secret', mlClientSecret.trim())
+      } else {
+        toast.error(data.message)
+      }
+    } catch {
+      toast.error('Erro ao conectar com a API do Mercado Livre. Verifique a internet e as credenciais.')
+    } finally {
+      setIsTestingMl(false)
+    }
+  }
 
   const handleLogin = () => {
     if (password === 'admin4128') {
@@ -1515,6 +1667,30 @@ function AdminPage({ onBack }: { onBack: () => void }) {
       <div className="section-title">Painel Administrativo</div>
       <div className="section-subtitle">Gestão de Lucro (60%), Cashback (40%), WhatsApp e Saques PIX</div>
 
+      {/* Controle de Status do Site (Manutenção vs No Ar) */}
+      <div className="admin-status-control-card">
+        <div className="ascc-info">
+          <div className={`ascc-badge ${isMaintenance ? 'badge-maint' : 'badge-live'}`}>
+            {isMaintenance ? '🔴 Modo Manutenção Ativo' : '🟢 Site no Ar'}
+          </div>
+          <div className="ascc-title">
+            {isMaintenance ? 'O site está FORA DO AR para o público' : 'O site está NO AR e acessível para todos'}
+          </div>
+          <div className="ascc-desc">
+            {isMaintenance
+              ? 'Visitantes veem a tela de manutenção. Apenas você consegue acessar este painel de administradora.'
+              : 'O público tem acesso normal para gerar cashback e solicitar saques.'}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={`ascc-btn ${isMaintenance ? 'publish' : 'unpublish'}`}
+          onClick={onToggleMaintenance}
+        >
+          {isMaintenance ? '🚀 Publicar Site (Colocar no Ar)' : '🔒 Ativar Modo Manutenção'}
+        </button>
+      </div>
+
       {/* Grid de Métricas Financeiras */}
       <div className="admin-metrics-grid">
         <div className="admin-metric-card green">
@@ -1564,6 +1740,13 @@ function AdminPage({ onBack }: { onBack: () => void }) {
         >
           <Users size={15} />
           Usuários ({allUsers.length})
+        </button>
+        <button
+          className={`platform-tab ${adminTab === 'integrations' ? 'active' : ''}`}
+          onClick={() => setAdminTab('integrations')}
+        >
+          <Key size={15} />
+          APIs & Conexões
         </button>
         <button
           className={`platform-tab ${adminTab === 'automation' ? 'active' : ''}`}
@@ -1877,6 +2060,133 @@ function AdminPage({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
+      {/* Conteúdo da Aba: APIs & Conexões (Mercado Livre + Shopee) */}
+      {adminTab === 'integrations' && (
+        <div className="admin-section">
+          {/* Card 1: Mercado Livre Official API */}
+          <div className="admin-integration-card">
+            <div className="aic-header">
+              <div className="aic-title-box">
+                <MLIcon />
+                <div>
+                  <div className="aic-title">API Oficial do Mercado Livre</div>
+                  <div className="aic-sub">Consulta automática de preços, fotos e categorias oficiais</div>
+                </div>
+              </div>
+              <span className={`aic-badge ${mlClientId && mlClientSecret ? 'connected' : 'disconnected'}`}>
+                {mlClientId && mlClientSecret ? '🟢 Configurado' : '⚪ Pendente'}
+              </span>
+            </div>
+
+            <p className="aic-desc">
+              Com as credenciais da sua aplicação no Mercado Livre, o robô consulta o título, foto e preço exato de cada anúncio automaticamente!
+            </p>
+
+            <div className="aic-form">
+              <label className="form-label">
+                App ID (Client ID) do Mercado Livre:
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: 1234567890123456"
+                value={mlClientId}
+                onChange={e => setMlClientId(e.target.value)}
+              />
+
+              <label className="form-label">
+                Client Secret (Chave Secreta):
+              </label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Ex: abcd1234efgh5678..."
+                value={mlClientSecret}
+                onChange={e => setMlClientSecret(e.target.value)}
+              />
+
+              <div className="aic-actions">
+                <button
+                  type="button"
+                  className="aic-save-btn"
+                  onClick={() => {
+                    localStorage.setItem('bn_ml_client_id', mlClientId.trim())
+                    localStorage.setItem('bn_ml_client_secret', mlClientSecret.trim())
+                    toast.success('Credenciais salvas com sucesso!')
+                  }}
+                >
+                  Salvar Credenciais
+                </button>
+                <button
+                  type="button"
+                  className="aic-test-btn"
+                  onClick={handleTestMlConnection}
+                  disabled={isTestingMl}
+                >
+                  {isTestingMl ? 'Testando Conexão...' : '⚡ Testar Conexão Oficial'}
+                </button>
+              </div>
+
+              {mlTestResult && (
+                <div className={`aic-result-box ${mlTestResult.success ? 'success' : 'error'}`}>
+                  {mlTestResult.success ? '✅ ' : '❌ '}
+                  {mlTestResult.message}
+                </div>
+              )}
+            </div>
+
+            {/* Passo a passo ilustrado para obter as chaves */}
+            <div className="aic-instructions">
+              <div className="aici-title">📖 Como pegar seu App ID e Secret em 2 minutos:</div>
+              <ol className="aici-list">
+                <li>Acesse <strong>developers.mercadolivre.com.br</strong> e entre com sua conta do Mercado Livre.</li>
+                <li>No menu superior, clique em <strong>"Minhas Aplicações"</strong> e depois no botão <strong>"Criar nova aplicação"</strong>.</li>
+                <li>Preencha o nome (ex: <em>BNcashback</em>) e confirme.</li>
+                <li>Copie o <strong>App ID</strong> e a <strong>Secret Key</strong> gerados e cole nos campos acima!</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Card 2: Shopee Affiliate Open API */}
+          <div className="admin-integration-card" style={{ marginTop: 20 }}>
+            <div className="aic-header">
+              <div className="aic-title-box">
+                <ShopeeIcon />
+                <div>
+                  <div className="aic-title">Shopee Affiliate Open API</div>
+                  <div className="aic-sub">Consulta automática de ofertas e comissões da Shopee</div>
+                </div>
+              </div>
+              <span className="aic-badge waiting">
+                ⏳ Aguardando Solicitação
+              </span>
+            </div>
+
+            <p className="aic-desc">
+              A Shopee exige uma solicitação prévia junto ao suporte de afiliados para liberar as chaves da Open API.
+            </p>
+
+            <div className="shopee-request-box">
+              <div className="srb-title">✉️ Mensagem Pronta para Enviar ao Suporte da Shopee:</div>
+              <div className="srb-content">
+                "Olá equipe Shopee Afiliados! Sou parceira afiliada ativa (ID an_18335281102) e gostaria de solicitar a ativação do acesso à Open API para o meu aplicativo de cashback BNcashback, a fim de consultar ofertas e comissões dos produtos."
+              </div>
+              <button
+                type="button"
+                className="srb-copy-btn"
+                onClick={() => {
+                  const msg = "Olá equipe Shopee Afiliados! Sou parceira afiliada ativa (ID an_18335281102) e gostaria de solicitar a ativação do acesso à Open API para o meu aplicativo de cashback BNcashback, a fim de consultar ofertas e comissões dos produtos."
+                  navigator.clipboard.writeText(msg)
+                  toast.success('Mensagem copiada! Envie no formulário ou chat da Shopee.')
+                }}
+              >
+                <Copy size={13} /> Copiar Mensagem para Suporte
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Conteúdo da Aba 4: Automação de Pagamentos */}
       {adminTab === 'automation' && (
         <div className="admin-automation-card">
@@ -1967,11 +2277,25 @@ function MaintenancePage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
 // ---- Main App ----
 export default function App() {
-  const [isMaintenance] = useState(true)
+  const [isMaintenance, setIsMaintenance] = useState(() => {
+    const saved = localStorage.getItem('bn_site_maintenance')
+    return saved !== null ? saved === 'true' : true
+  })
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+
+  const handleToggleMaintenance = () => {
+    const next = !isMaintenance
+    setIsMaintenance(next)
+    localStorage.setItem('bn_site_maintenance', String(next))
+    if (next) {
+      toast.info('Modo Manutenção ativado. O público verá a tela de manutenção.')
+    } else {
+      toast.success('Site no ar! O público agora tem acesso completo ao app. 🚀')
+    }
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem('bn_current_user')
@@ -2021,8 +2345,8 @@ export default function App() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, background: '#fee2e2', color: '#dc2626', padding: '3px 8px', borderRadius: 999, fontWeight: 800 }}>
-                  SITE FORA DO AR (MANUTENÇÃO)
+                <span style={{ fontSize: 11, background: isMaintenance ? '#fee2e2' : '#dcfce7', color: isMaintenance ? '#dc2626' : '#16a34a', padding: '3px 8px', borderRadius: 999, fontWeight: 800 }}>
+                  {isMaintenance ? 'MANUTENÇÃO ATIVA' : 'SITE NO AR'}
                 </span>
                 <button
                   className="admin-header-btn"
@@ -2036,7 +2360,11 @@ export default function App() {
             <div className="header-tagline">Painel de Controle Exclusivo da Administradora</div>
           </header>
           <main className="main-content">
-            <AdminPage onBack={() => setIsAdminOpen(false)} />
+            <AdminPage
+              onBack={() => setIsAdminOpen(false)}
+              isMaintenance={isMaintenance}
+              onToggleMaintenance={handleToggleMaintenance}
+            />
           </main>
         </div>
       </>
@@ -2097,7 +2425,13 @@ export default function App() {
               onOpenAdmin={() => setActiveTab('admin')}
             />
           )}
-          {activeTab === 'admin' && <AdminPage onBack={() => setActiveTab('settings')} />}
+          {activeTab === 'admin' && (
+            <AdminPage
+              onBack={() => setActiveTab('settings')}
+              isMaintenance={isMaintenance}
+              onToggleMaintenance={handleToggleMaintenance}
+            />
+          )}
         </main>
 
         {/* Bottom Navigation */}
