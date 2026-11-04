@@ -383,10 +383,7 @@ function HomePage({
 }) {
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
-  const [priceInput, setPriceInput] = useState('')
   const [productTitle, setProductTitle] = useState('')
-  const [productImage, setProductImage] = useState('')
-  const [apiSource, setApiSource] = useState<'none' | 'ml_api' | 'manual'>('none')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
@@ -417,23 +414,18 @@ function HomePage({
       setCashbackAmount(0)
       setProcessState('idle')
 
-      // Detecta URL e tenta extrair preço se houver no texto compartilhado
+      // Detecta URL no texto compartilhado
       const urlMatch = trimmed.match(/https?:\/\/[^\s]+/i)
       if (urlMatch) {
         setLinkInput(urlMatch[0])
         const detected = detectPlatform(urlMatch[0])
         if (detected) setPlatform(detected)
-
-        const priceMatch = trimmed.match(/R\$\s*([0-9]+[.,]?[0-9]*)/i)
-        if (priceMatch && !priceInput) {
-          setPriceInput(priceMatch[1].replace('.', ','))
-        }
       } else {
         setLinkInput(trimmed)
         const detected = detectPlatform(trimmed)
         if (detected) setPlatform(detected)
       }
-      toast.info('Link colado! Informe o valor do produto para o cálculo exato.')
+      toast.success('Link colado! Agora clique em Gerar link.')
     } catch {
       toast.error('Permita o acesso à área de transferência para colar')
     }
@@ -441,17 +433,14 @@ function HomePage({
 
   const handleClear = () => {
     setLinkInput('')
-    setPriceInput('')
     setProductTitle('')
-    setProductImage('')
-    setApiSource('none')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
     setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
-    toast.info('Campos limpos. Cole o novo link!')
+    toast.info('Campo limpo. Cole o novo link!')
   }
 
   const handleGenerate = async () => {
@@ -512,10 +501,7 @@ function HomePage({
             setAffiliateLink(apiData.affiliateLink)
             setCashbackAmount(apiData.cashback)
             setTotalFound(apiData.cashback)
-            setPriceInput(price.toFixed(2).replace('.', ','))
             setProductTitle(apiData.title)
-            setProductImage(apiData.thumbnail || '')
-            setApiSource('ml_api')
             setProcessState('done')
 
             const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
@@ -543,7 +529,7 @@ function HomePage({
             setCurrentPurchaseId(newId)
             setHasNotifiedPurchase(false)
 
-            toast.success('Preço e produto consultados na API do Mercado Livre! 🎉')
+            toast.success('Link com cashback gerado com sucesso! 🎉')
             return
           } else if (apiData.title) {
             setProductTitle(apiData.title)
@@ -554,30 +540,21 @@ function HomePage({
       }
     }
 
-    // Se a API não retornou o preço, verifica o valor informado se houver
-    const cleanPrice = priceInput.trim().replace('R$', '').trim().replace(',', '.')
-    const productPrice = parseFloat(cleanPrice)
-    const hasPrice = !isNaN(productPrice) && productPrice > 0
-
-    // Processamento com ou sem valor informado
+    // Processamento direto baseado na categoria do link
     await new Promise(r => setTimeout(r, 600))
 
     const generated = generateAffiliateLink(linkInput.trim(), activePlatform)
     const category = detectCategory(linkInput.trim())
     const marketplaceRate = activePlatform === 'ml' ? category.mlCommission : category.shopeeCommission
 
-    const totalCommission = hasPrice ? (productPrice * marketplaceRate) / 100 : 0
-    const ownerProfit = hasPrice ? totalCommission * OWNER_COMMISSION_SHARE : 0 // 60%
-    const userCashback = hasPrice ? totalCommission * USER_COMMISSION_SHARE : 0 // 40%
     const userRatePctVal = (marketplaceRate * USER_COMMISSION_SHARE).toFixed(1).replace('.', ',')
     const userRatePct = `${userRatePctVal}%`
 
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
     setAffiliateLink(generated)
-    setCashbackAmount(userCashback)
-    setTotalFound(userCashback)
-    setApiSource('manual')
+    setCashbackAmount(0)
+    setTotalFound(0)
     setProcessState('done')
 
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
@@ -588,10 +565,10 @@ function HomePage({
       productName: productTitle || (activePlatform === 'ml' ? `Produto Mercado Livre (${category.name})` : `Produto Shopee (${category.name})`),
       originalLink: linkInput.trim(),
       affiliateLink: generated,
-      price: hasPrice ? productPrice : 0,
-      totalCommission,
-      ownerProfit,
-      cashback: userCashback,
+      price: 0,
+      totalCommission: 0,
+      ownerProfit: 0,
+      cashback: 0,
       cashbackRatePct: userRatePct,
       categoryName: category.name,
       categoryIcon: category.icon,
@@ -632,10 +609,7 @@ function HomePage({
 
   const handleReset = () => {
     setLinkInput('')
-    setPriceInput('')
     setProductTitle('')
-    setProductImage('')
-    setApiSource('none')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
@@ -719,12 +693,12 @@ function HomePage({
             }}
             disabled={processState === 'processing'}
           />
-          {(linkInput || priceInput) && (
+          {linkInput && (
             <button
               type="button"
               className="clear-btn"
               onClick={handleClear}
-              title="Limpar campos"
+              title="Limpar link"
               disabled={processState === 'processing'}
             >
               ✕ Limpar
@@ -733,45 +707,6 @@ function HomePage({
           <button className="paste-btn" onClick={handlePaste} disabled={processState === 'processing'}>
             Colar
           </button>
-        </div>
-
-        {/* Campo de Preço do Produto (Opcional) */}
-        <div className="product-price-section">
-          <div className="product-price-label">
-            <span>Valor do produto no site:</span>
-            <span className="product-price-hint">Opcional para cálculo em R$</span>
-          </div>
-          <div className="product-price-wrap">
-            <span className="price-currency">R$</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="product-price-input"
-              placeholder="Ex: 50,00"
-              value={priceInput}
-              onChange={e => {
-                setPriceInput(e.target.value)
-                setTotalFound(0) // Reseta o valor encontrado ao alterar o preço
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleGenerate()
-              }}
-              disabled={processState === 'processing'}
-            />
-            {priceInput && (
-              <button
-                type="button"
-                className="clear-price-btn"
-                onClick={() => {
-                  setPriceInput('')
-                  setTotalFound(0)
-                }}
-                title="Limpar valor"
-              >
-                ✕
-              </button>
-            )}
-          </div>
         </div>
 
         <button
@@ -842,28 +777,6 @@ function HomePage({
 
         {affiliateLink ? (
           <>
-            {/* Produto Oficial Detectado (API Mercado Livre) */}
-            {(productImage || productTitle) && (
-              <div className="api-product-preview-card">
-                {productImage ? (
-                  <img src={productImage} alt={productTitle} className="appc-thumb" />
-                ) : (
-                  <div className="appc-icon-placeholder">{detectedCategory.icon}</div>
-                )}
-                <div className="appc-details">
-                  {apiSource === 'ml_api' && (
-                    <div className="appc-source-badge">
-                      <span className="appc-dot"></span> Dados Oficiais da API Mercado Livre
-                    </div>
-                  )}
-                  <div className="appc-title">{productTitle}</div>
-                  {priceInput && (
-                    <div className="appc-price">Preço Oficial: <strong>R$ {priceInput}</strong></div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Category & Final Cashback Info */}
             <div className="category-info-box">
               <div className="category-badge">
