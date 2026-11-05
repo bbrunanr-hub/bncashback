@@ -19,9 +19,13 @@ const SHOPEE_AFFILIATE_ID = 'an_18335281102'
 const SHOPEE_CAMPAIGN_ID = 'id_52MZIjcVHTp'
 
 // ---- Category & Proportional Commission Structure ----
-// Proporção de divisão da comissão: 60% para você (monetização) e 40% para o usuário (cashback)
-export const USER_COMMISSION_SHARE = 0.40 // 40% para o usuário
-export const OWNER_COMMISSION_SHARE = 0.60 // 60% seu lucro líquido
+// Proporção de divisão padrão: 60% para você e 40% para o usuário comprador
+// Proporção especial quando o comprador foi indicado por alguém que alcançou 10 amigos:
+// 50% para você, 10% para o indicador primário e 40% para o usuário comprador
+export const USER_COMMISSION_SHARE = 0.40 // 40% para o comprador
+export const OWNER_COMMISSION_SHARE = 0.60 // 60% seu lucro padrão
+export const OWNER_VIP_COMMISSION_SHARE = 0.50 // 50% seu lucro quando há indicador primário
+export const PRIMARY_BONUS_COMMISSION_SHARE = 0.10 // 10% bônus para o indicador primário por 6 meses
 
 export interface CategoryCommission {
   key: string
@@ -151,6 +155,11 @@ export interface UserProfile {
   email?: string
   referralCode: string     // Código para indicar 10 amigos
   createdAt: string
+  referredBy?: string      // Código do indicador primário
+  referredByName?: string  // Nome do indicador primário
+  referredByWhatsapp?: string // WhatsApp do indicador primário
+  isVipPrimary?: boolean   // True se alcançou os 10 indicados
+  vipExpiresAt?: string    // Data de expiração dos 6 meses de bônus VIP
 }
 
 export type PurchaseStatus = 'link_created' | 'purchase_notified' | 'pending' | 'approved'
@@ -163,8 +172,8 @@ export interface Purchase {
   affiliateLink: string
   price: number
   totalCommission: number   // 100% da comissão gerada pelo marketplace
-  ownerProfit: number       // 60% seu lucro líquido
-  cashback: number          // 40% cashback do usuário
+  ownerProfit: number       // 60% padrão ou 50% quando há indicador primário
+  cashback: number          // 40% cashback do comprador (ou 10% bônus do primário)
   cashbackRatePct: string
   categoryName: string
   categoryIcon: string
@@ -172,6 +181,32 @@ export interface Purchase {
   date: string
   userName?: string
   userWhatsapp?: string
+  // Rastreamento de Indicação / Primário:
+  primaryUserName?: string      // Nome do indicador primário
+  primaryUserWhatsapp?: string  // WhatsApp do indicador primário
+  primaryBonusAmount?: number   // 10% da comissão destinado ao indicador
+  isReferralBonus?: boolean     // True se for registro de bônus gerado para o primário
+  referredBuyerName?: string    // Nome do comprador indicado
+}
+
+// Verifica se o usuário possui um indicador primário elegível para o bônus de 10%
+export function getEligiblePrimaryUser(
+  buyer: UserProfile | null,
+  allUsers: UserProfile[]
+): UserProfile | null {
+  if (!buyer?.referredBy) return null
+  const primary = allUsers.find(
+    u => u.referralCode?.toUpperCase() === buyer.referredBy?.toUpperCase()
+  )
+  if (!primary) return null
+  // Conta amigos que logaram pelo primário
+  const refCount = allUsers.filter(u => u.referredBy?.toUpperCase() === primary.referralCode?.toUpperCase()).length
+  const isVip = primary.isVipPrimary || refCount >= 10
+  const notExpired = !primary.vipExpiresAt || new Date(primary.vipExpiresAt) > new Date()
+  if (isVip && notExpired) {
+    return primary
+  }
+  return null
 }
 
 export interface WithdrawalRequest {
@@ -323,6 +358,16 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
     }
 
     const referralCode = currentUser?.referralCode || generateReferralCode(name)
+    const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const pendingRef = sessionStorage.getItem('bn_pending_ref') || localStorage.getItem('bn_pending_ref')
+    let primaryUser: UserProfile | undefined
+    if (pendingRef && !currentUser?.referredBy) {
+      primaryUser = allUsers.find(
+        u => u.referralCode?.toUpperCase() === pendingRef.toUpperCase() &&
+             cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
+      )
+    }
+
     const user: UserProfile = {
       id: currentUser?.id || crypto.randomUUID(),
       name: name.trim(),
@@ -330,7 +375,12 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
       cleanWhatsapp: cleanPhone,
       email: email.trim() || undefined,
       referralCode,
-      createdAt: currentUser?.createdAt || new Date().toLocaleDateString('pt-BR')
+      createdAt: currentUser?.createdAt || new Date().toLocaleDateString('pt-BR'),
+      referredBy: currentUser?.referredBy || (primaryUser ? primaryUser.referralCode : undefined),
+      referredByName: currentUser?.referredByName || (primaryUser ? primaryUser.name : undefined),
+      referredByWhatsapp: currentUser?.referredByWhatsapp || (primaryUser ? primaryUser.whatsapp : undefined),
+      isVipPrimary: currentUser?.isVipPrimary || false,
+      vipExpiresAt: currentUser?.vipExpiresAt
     }
 
     onSave(user)
@@ -355,7 +405,7 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
           <div className="ric-content">
             <div className="ric-title">Programa Indique 10 Amigos</div>
             <div className="ric-desc">
-              Cadastre seu WhatsApp para acompanhar seu saldo. Ao indicar <strong>10 amigos</strong>, nossa equipe entra em contato pelo WhatsApp com <strong>vantagens e bônus exclusivos</strong>!
+              Consiga 10 novos loguins e quado um deles comprarem algo usando o sistema BNcashback gerará uma fração de cashback à você também
             </div>
           </div>
         </div>
@@ -546,6 +596,13 @@ function HomePage({
             setProductTitle(apiData.title)
             setProcessState('done')
 
+            const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+            const eligiblePrimary = getEligiblePrimaryUser(currentUser, allUsers)
+            const totalCommission = apiData.totalCommission || ((price * catRate) / 100)
+            const ownerProfit = eligiblePrimary ? (totalCommission * OWNER_VIP_COMMISSION_SHARE) : (totalCommission * OWNER_COMMISSION_SHARE)
+            const primaryBonusAmount = eligiblePrimary ? (totalCommission * PRIMARY_BONUS_COMMISSION_SHARE) : 0
+            const buyerCashback = totalCommission * USER_COMMISSION_SHARE
+
             const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
             const newId = crypto.randomUUID()
             const newPurchase: Purchase = {
@@ -555,9 +612,9 @@ function HomePage({
               originalLink: linkInput.trim(),
               affiliateLink: apiData.affiliateLink,
               price,
-              totalCommission: apiData.totalCommission,
-              ownerProfit: apiData.ownerProfit,
-              cashback: apiData.cashback,
+              totalCommission,
+              ownerProfit,
+              cashback: buyerCashback,
               cashbackRatePct: apiData.cashbackRatePct,
               categoryName: apiData.categoryName,
               categoryIcon: apiData.categoryIcon,
@@ -565,6 +622,9 @@ function HomePage({
               date: new Date().toLocaleDateString('pt-BR'),
               userName: currentUser?.name,
               userWhatsapp: currentUser?.whatsapp,
+              primaryUserName: eligiblePrimary?.name,
+              primaryUserWhatsapp: eligiblePrimary?.whatsapp,
+              primaryBonusAmount,
             }
             purchases.unshift(newPurchase)
             localStorage.setItem('bn_purchases', JSON.stringify(purchases))
@@ -599,6 +659,9 @@ function HomePage({
     setTotalFound(0)
     setProcessState('done')
 
+    const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const eligiblePrimary = getEligiblePrimaryUser(currentUser, allUsers)
+
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const newId = crypto.randomUUID()
     const newPurchase: Purchase = {
@@ -618,6 +681,9 @@ function HomePage({
       date: new Date().toLocaleDateString('pt-BR'),
       userName: currentUser?.name,
       userWhatsapp: currentUser?.whatsapp,
+      primaryUserName: eligiblePrimary?.name,
+      primaryUserWhatsapp: eligiblePrimary?.whatsapp,
+      primaryBonusAmount: 0,
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
@@ -660,36 +726,83 @@ function HomePage({
     setHasNotifiedPurchase(false)
   }
 
+  // Contagem de amigos cadastrados pelo link deste usuário
+  const allSavedUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+  const myReferredFriends = currentUser
+    ? allSavedUsers.filter(u => u.referredBy?.toUpperCase() === currentUser.referralCode?.toUpperCase())
+    : []
+  const myReferralCount = myReferredFriends.length
+  const hasReached10Friends = myReferralCount >= 10 || Boolean(currentUser?.isVipPrimary)
+  const refProgressPct = Math.min(100, (myReferralCount / 10) * 100)
+
   return (
     <div className="page">
-      {/* Banner de Indicação & WhatsApp */}
+      {/* Banner de Indicação & Meta de 10 Amigos */}
       {!currentUser ? (
-        <div className="referral-top-banner" onClick={onOpenRegister}>
-          <div className="rtb-icon">🎁</div>
-          <div className="rtb-content">
-            <div className="rtb-title">Cadastre 10 amigos e aumente seus cashbacks por 6 meses</div>
-            <div className="rtb-sub">Indique 10 amigos e ganhe <strong>bônus exclusivos</strong> no seu cashback. <u>Toque para cadastrar ➔</u></div>
+        <div className="referral-box-home" onClick={onOpenRegister} style={{ cursor: 'pointer' }}>
+          <div className="rbh-header">
+            <div className="rbh-title">
+              <Gift size={16} color="#92400E" />
+              <span>Programa Indique 10 Amigos</span>
+            </div>
+            <span className="rbh-badge">Ativo 🔥</span>
+          </div>
+          <div className="rbh-desc">
+            Consiga 10 novos loguins e quado um deles comprarem algo usando o sistema BNcashback gerará uma fração de cashback à você também
+          </div>
+          <div style={{ fontSize: '11px', color: '#B45309', fontWeight: 800 }}>
+            <u>Toque para fazer login e pegar seu link de convite ➔</u>
           </div>
         </div>
       ) : (
-        <div className="referral-user-badge">
-          <div className="rub-left">
-            <span className="rub-avatar">{currentUser.name.charAt(0).toUpperCase()}</span>
-            <div className="rub-info">
-              <span className="rub-greeting">Olá, <strong>{currentUser.name.split(' ')[0]}</strong>!</span>
-              <span className="rub-code">Cód: {currentUser.referralCode}</span>
+        <div className="referral-box-home">
+          <div className="rbh-header">
+            <div className="rbh-title">
+              <Gift size={16} color="#92400E" />
+              <span>Programa Indique 10 Amigos</span>
+            </div>
+            <span className={`rbh-badge ${hasReached10Friends ? 'vip' : ''}`}>
+              {hasReached10Friends ? '⭐ Meta Atingida (VIP)' : `${myReferralCount}/10`}
+            </span>
+          </div>
+
+          <div className="rbh-desc">
+            Consiga 10 novos loguins e quado um deles comprarem algo usando o sistema BNcashback gerará uma fração de cashback à você também
+          </div>
+
+          <div className="ref-progress-wrap">
+            <div className="ref-progress-track">
+              <div className="ref-progress-fill" style={{ width: `${refProgressPct}%` }} />
+            </div>
+            <div className="ref-progress-label">
+              <span>{myReferralCount} de 10 amigos cadastrados</span>
+              <span className={hasReached10Friends ? 'vip-text' : ''}>
+                {hasReached10Friends ? 'Meta 10/10 VIP Concluída!' : `${refProgressPct.toFixed(0)}%`}
+              </span>
             </div>
           </div>
-          <button
-            className="rub-share-btn"
-            onClick={() => {
-              const msg = `Oi! Estou usando o BNcashback para receber dinheiro de volta nas minhas compras do Mercado Livre e Shopee! 💰 Dá uma olhada e usa meu código ${currentUser.referralCode} ou acessa: ${window.location.origin}`
-              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
-            }}
-            title="Convidar amigos no WhatsApp"
-          >
-            <Share2 size={13} /> Indicar 10 Amigos
-          </button>
+
+          {hasReached10Friends ? (
+            <div className="meta-reached-box">
+              <span>🎉</span>
+              <div>
+                <strong>Meta de 10 amigos alcançada!</strong> Pelos próximos 6 meses, sempre que um dos seus 10 indicados comprar pelo sistema BNcashback, você receberá 10% de bônus direto no seu saldo. Novos convites pausados na meta!
+              </div>
+            </div>
+          ) : (
+            <button
+              className="rub-share-btn"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+              onClick={() => {
+                const inviteUrl = `${window.location.origin}/?ref=${currentUser.referralCode}`
+                const msg = `Oi! Estou usando o BNcashback para ganhar dinheiro de volta nas minhas compras do Mercado Livre e Shopee! 💰 Acesse pelo meu link e faça seu login para começar a ganhar também: ${inviteUrl}`
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+              }}
+              title="Convidar amigos no WhatsApp"
+            >
+              <Share2 size={14} /> Convidar Amigos no WhatsApp ({myReferralCount}/10)
+            </button>
+          )}
         </div>
       )}
       {/* Platform Selector */}
@@ -991,6 +1104,31 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
 
       {purchases.map(p => {
         const badge = getStatusBadge(p.status)
+
+        if (p.isReferralBonus) {
+          return (
+            <div key={p.id} className="purchase-item" style={{ borderLeft: '4px solid #8B5CF6', background: '#FAF5FF' }}>
+              <div className="purchase-icon" style={{ background: '#EDE9FE', color: '#6D28D9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                🎁
+              </div>
+              <div className="purchase-info">
+                <div className="purchase-name" style={{ color: '#6D28D9', fontWeight: 800 }}>
+                  Bônus por Indicação (10%)
+                </div>
+                <div className="purchase-date">
+                  {p.date} • Compra realizada por {p.referredBuyerName || 'Amigo Indicado'}
+                </div>
+              </div>
+              <div className="purchase-cashback">
+                <div className="cashback-amount" style={{ color: '#6D28D9' }}>+{formatCurrency(p.cashback)}</div>
+                <div className={`cashback-status ${badge.className}`}>
+                  {badge.text}
+                </div>
+              </div>
+            </div>
+          )
+        }
+
         return (
           <div key={p.id} className="purchase-item">
             <div className={`purchase-icon ${p.platform}`}>
@@ -1288,6 +1426,15 @@ function SettingsPage({
 
   const isAdminAuthenticated = typeof window !== 'undefined' && sessionStorage.getItem('bn_admin_auth') === 'true'
 
+  // Contagem de indicados deste usuário
+  const allSavedUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+  const myReferredFriends = currentUser
+    ? allSavedUsers.filter(u => u.referredBy?.toUpperCase() === currentUser.referralCode?.toUpperCase())
+    : []
+  const myReferralCount = myReferredFriends.length
+  const hasReached10Friends = myReferralCount >= 10 || Boolean(currentUser?.isVipPrimary)
+  const refProgressPct = Math.min(100, (myReferralCount / 10) * 100)
+
   const items = [
     ...(isAdminAuthenticated ? [{
       icon: <Shield size={20} color="#EA580C" />,
@@ -1369,27 +1516,53 @@ function SettingsPage({
                 <Gift size={16} color="var(--primary)" />
                 <span>Programa Indique 10 Amigos</span>
               </div>
-              <span className="ref-badge">Ativo 🔥</span>
+              <span className={`ref-badge ${hasReached10Friends ? 'vip' : ''}`}>
+                {hasReached10Friends ? '⭐ Meta Atingida (VIP)' : `${myReferralCount}/10`}
+              </span>
             </div>
 
             <div className="ref-desc">
-              Ao indicar <strong>10 amigos</strong> para usar o app, a administradora libera <strong>vantagens e bônus no seu cashback</strong>!
+              Consiga 10 novos loguins e quado um deles comprarem algo usando o sistema BNcashback gerará uma fração de cashback à você também
+            </div>
+
+            <div className="ref-progress-wrap">
+              <div className="ref-progress-track">
+                <div className="ref-progress-fill" style={{ width: `${refProgressPct}%` }} />
+              </div>
+              <div className="ref-progress-label">
+                <span>{myReferralCount} de 10 amigos cadastrados</span>
+                <span className={hasReached10Friends ? 'vip-text' : ''}>
+                  {hasReached10Friends ? 'Meta 10/10 VIP Ativa!' : `${refProgressPct.toFixed(0)}%`}
+                </span>
+              </div>
             </div>
 
             <div className="ref-code-wrap">
-              <div className="ref-code-label">Seu Código de Indicação:</div>
-              <div className="ref-code-val">{currentUser.referralCode}</div>
+              <div className="ref-code-label">Seu Link Rastreado:</div>
+              <div className="ref-code-val" style={{ fontSize: '11.5px', wordBreak: 'break-all' }}>
+                {`${window.location.origin}/?ref=${currentUser.referralCode}`}
+              </div>
             </div>
 
-            <button
-              className="wa-share-btn"
-              onClick={() => {
-                const shareMsg = `Oi! Estou usando o BNcashback para receber cashback de volta em compras no Mercado Livre e Shopee! 💰 Dá uma olhada e usa meu código ${currentUser.referralCode}: ${window.location.origin}`
-                window.open(`https://wa.me/?text=${encodeURIComponent(shareMsg)}`, '_blank')
-              }}
-            >
-              <MessageCircle size={17} /> Convidar 10 Amigos no WhatsApp
-            </button>
+            {hasReached10Friends ? (
+              <div className="meta-reached-box">
+                <span>🎉</span>
+                <div>
+                  <strong>Meta de 10 amigos atingida!</strong> Convites pausados. Você tem 10% de bônus garantido nas compras dos seus indicados por 6 meses!
+                </div>
+              </div>
+            ) : (
+              <button
+                className="wa-share-btn"
+                onClick={() => {
+                  const inviteUrl = `${window.location.origin}/?ref=${currentUser.referralCode}`
+                  const shareMsg = `Oi! Estou usando o BNcashback para ganhar dinheiro de volta nas minhas compras do Mercado Livre e Shopee! 💰 Acesse pelo meu link e faça seu login para começar a ganhar também: ${inviteUrl}`
+                  window.open(`https://wa.me/?text=${encodeURIComponent(shareMsg)}`, '_blank')
+                }}
+              >
+                <MessageCircle size={17} /> Convidar Amigos no WhatsApp ({myReferralCount}/10)
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -1559,27 +1732,67 @@ function AdminPage({
   }
 
   const handleComputeSale = (purchaseId: string) => {
+    let bonusToInsert: Purchase | null = null
+    const target = purchases.find(p => p.id === purchaseId)
+
+    // Se a venda possuir indicador primário com bônus, gera o registro de bônus no saldo aguardando dele
+    if (target && target.primaryUserWhatsapp && (target.primaryBonusAmount || 0) > 0) {
+      const bonusId = `bonus-${target.id}`
+      const alreadyExists = purchases.some(p => p.id === bonusId)
+      if (!alreadyExists) {
+        bonusToInsert = {
+          id: bonusId,
+          platform: target.platform,
+          productName: `Bônus Indicação (10%): Compra de ${target.userName || 'Amigo Indicado'}`,
+          originalLink: target.originalLink,
+          affiliateLink: target.affiliateLink,
+          price: target.price,
+          totalCommission: target.totalCommission,
+          ownerProfit: target.ownerProfit,
+          cashback: target.primaryBonusAmount || 0,
+          cashbackRatePct: '10% Bônus',
+          categoryName: target.categoryName,
+          categoryIcon: '🎁',
+          status: 'pending', // Entra no Saldo Aguardando do indicador primário!
+          date: new Date().toLocaleDateString('pt-BR'),
+          userName: target.primaryUserName,
+          userWhatsapp: target.primaryUserWhatsapp,
+          isReferralBonus: true,
+          referredBuyerName: target.userName || 'Amigo Indicado'
+        }
+      }
+    }
+
     const updated = purchases.map(p => {
       if (p.id === purchaseId) {
         return { ...p, status: 'pending' as const }
       }
       return p
     })
+
+    if (bonusToInsert) {
+      updated.unshift(bonusToInsert)
+    }
+
     setPurchases(updated)
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
-    toast.success('Venda computada do marketplace! Valor adicionado ao Saldo Aguardando do usuário. 💰')
+    toast.success(
+      target?.primaryUserWhatsapp
+        ? `Venda computada! 40% creditado ao comprador e 10% creditado ao indicador (${target.primaryUserName}). 💰`
+        : 'Venda computada do marketplace! Valor adicionado ao Saldo Aguardando do usuário. 💰'
+    )
   }
 
   const handleApproveCommission = (purchaseId: string) => {
     const updated = purchases.map(p => {
-      if (p.id === purchaseId) {
+      if (p.id === purchaseId || p.id === `bonus-${purchaseId}`) {
         return { ...p, status: 'approved' as const }
       }
       return p
     })
     setPurchases(updated)
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
-    toast.success('Saldo do usuário aprovado para saque PIX! 🎉')
+    toast.success('Saldo do usuário e bônus aprovados para saque PIX! 🎉')
   }
 
   const copyText = (text: string, label: string) => {
@@ -1875,8 +2088,64 @@ function AdminPage({
             </div>
           ) : (
             purchases.map(p => {
+              if (p.isReferralBonus) {
+                return (
+                  <div key={p.id} className="admin-sale-card as-bonus-card">
+                    <div className="as-header">
+                      <span className="as-platform" style={{ background: '#EDE9FE', color: '#6D28D9' }}>
+                        🎁 Bônus Indicação Primário (10%)
+                      </span>
+                      <span className="as-date">{p.date}</span>
+                    </div>
+
+                    <div className="as-product">
+                      🎁 <strong>{p.productName}</strong>
+                    </div>
+
+                    <div className="as-user-tag" style={{ background: '#FAF5FF', borderColor: '#E9D5FF' }}>
+                      ⭐ Indicador Primário (Recebedor): <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
+                    </div>
+
+                    <div className="as-split-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      <div className="as-split-item gross">
+                        <span className="as-s-label">Comprador Indicado</span>
+                        <span className="as-s-val" style={{ fontSize: '13px' }}>{p.referredBuyerName || 'Amigo Indicado'}</span>
+                      </div>
+                      <div className="as-split-item user" style={{ background: '#F5F3FF', borderColor: '#DDD6FE' }}>
+                        <span className="as-s-label" style={{ color: '#6D28D9' }}>Bônus Creditado (10%)</span>
+                        <span className="as-s-val" style={{ color: '#6D28D9' }}>{formatCurrency(p.cashback)}</span>
+                      </div>
+                    </div>
+
+                    <div className="as-footer">
+                      {p.status === 'pending' && (
+                        <>
+                          <span className="as-status pending">
+                            ⏳ Em Saldo Aguardando do Primário
+                          </span>
+                          <button
+                            className="as-approve-btn"
+                            onClick={() => handleApproveCommission(p.id)}
+                          >
+                            🎉 Liberar Bônus para Saque PIX
+                          </button>
+                        </>
+                      )}
+                      {p.status === 'approved' && (
+                        <span className="as-status approved">
+                          Status: Bônus Liberado para Saque PIX ✅
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+
+              const hasPrimary = Boolean(p.primaryUserWhatsapp && (p.primaryBonusAmount || 0) > 0)
               const gross = p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)
-              const owner = p.ownerProfit || (gross * OWNER_COMMISSION_SHARE)
+              const owner = p.ownerProfit || (hasPrimary ? gross * OWNER_VIP_COMMISSION_SHARE : gross * OWNER_COMMISSION_SHARE)
+              const primaryBonus = p.primaryBonusAmount || (hasPrimary ? gross * PRIMARY_BONUS_COMMISSION_SHARE : 0)
+
               return (
                 <div key={p.id} className="admin-sale-card">
                   <div className="as-header">
@@ -1890,21 +2159,34 @@ function AdminPage({
 
                   {p.userName && (
                     <div className="as-user-tag">
-                      👤 Usuário: <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
+                      👤 Comprador: <strong>{p.userName}</strong> {p.userWhatsapp ? `(${p.userWhatsapp})` : ''}
                     </div>
                   )}
 
-                  <div className="as-split-grid">
+                  {hasPrimary && (
+                    <div className="as-primary-tag">
+                      <span>⭐ Indicado por (Primário): <strong>{p.primaryUserName}</strong> ({p.primaryUserWhatsapp})</span>
+                      <span className="as-primary-badge">Bônus 10% Ativo</span>
+                    </div>
+                  )}
+
+                  <div className="as-split-grid" style={{ gridTemplateColumns: hasPrimary ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)' }}>
                     <div className="as-split-item gross">
-                      <span className="as-s-label">Comissão Total (100%)</span>
+                      <span className="as-s-label">Total (100%)</span>
                       <span className="as-s-val">{formatCurrency(gross)}</span>
                     </div>
                     <div className="as-split-item owner">
-                      <span className="as-s-label">Seu Lucro (60%)</span>
+                      <span className="as-s-label">{hasPrimary ? 'Seu Lucro (50%)' : 'Seu Lucro (60%)'}</span>
                       <span className="as-s-val">{formatCurrency(owner)}</span>
                     </div>
+                    {hasPrimary && (
+                      <div className="as-split-item" style={{ background: '#F5F3FF', borderColor: '#DDD6FE' }}>
+                        <span className="as-s-label" style={{ color: '#6D28D9' }}>Primário (10%)</span>
+                        <span className="as-s-val" style={{ color: '#6D28D9' }}>{formatCurrency(primaryBonus)}</span>
+                      </div>
+                    )}
                     <div className="as-split-item user">
-                      <span className="as-s-label">Cashback Usuário (40%)</span>
+                      <span className="as-s-label">Comprador (40%)</span>
                       <span className="as-s-val">{formatCurrency(p.cashback)}</span>
                     </div>
                   </div>
@@ -2013,7 +2295,11 @@ function AdminPage({
             </div>
           ) : (
             filteredUsers.map(user => {
-              const inviteMsg = `Olá ${user.name}! Tudo bem? Aqui é a Bruna do BNcashback 🎁 Passando para te avisar de uma super oportunidade: quem indicar 10 amigos para usar o nosso app ganha vantagens e bônus no seu cashback! 🚀 Quer participar e receber seu link especial?`
+              const myReferrals = allUsers.filter(u => u.referredBy?.toUpperCase() === user.referralCode?.toUpperCase())
+              const refCount = myReferrals.length
+              const isVip = user.isVipPrimary || refCount >= 10
+
+              const inviteMsg = `Olá ${user.name}! Tudo bem? Aqui é a Bruna do BNcashback 🎁 Passando para te avisar: indique 10 amigos com seu link exclusivo e ganhe 10% de bônus por 6 meses sobre as compras deles! Seu link de indicação é: ${window.location.origin}/?ref=${user.referralCode}`
               const waLink = `https://wa.me/55${user.cleanWhatsapp}?text=${encodeURIComponent(inviteMsg)}`
 
               return (
@@ -2041,6 +2327,37 @@ function AdminPage({
                         <Copy size={12} />
                       </button>
                     </div>
+
+                    {user.referredByName && (
+                      <div className="auc-row" style={{ color: '#6D28D9', fontSize: '12px' }}>
+                        <span>⭐ Indicado por: <strong>{user.referredByName}</strong> {user.referredByWhatsapp ? `(${user.referredByWhatsapp})` : ''}</span>
+                      </div>
+                    )}
+
+                    <div className="auc-row" style={{ fontSize: '12px' }}>
+                      <span>👥 Indicados cadastrados: <strong>{refCount} de 10</strong></span>
+                      {isVip && (
+                        <span className="vip-meta-badge">
+                          ⭐ VIP 10/10 (10% Bônus Ativo por 6 meses)
+                        </span>
+                      )}
+                    </div>
+
+                    {myReferrals.length > 0 && (
+                      <div className="auc-referred-list">
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', marginBottom: 4 }}>
+                          Amigos que entraram pelo link deste usuário ({myReferrals.length}):
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {myReferrals.map((friend, fIdx) => (
+                            <span key={fIdx} className="auc-friend-chip">
+                              ✓ {friend.name} ({friend.whatsapp})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {user.email && (
                       <div className="auc-row email">
                         <span>✉️ {user.email}</span>
@@ -2055,7 +2372,7 @@ function AdminPage({
                       rel="noopener noreferrer"
                       className="auc-wa-btn"
                     >
-                      <MessageCircle size={16} /> Chamar no WhatsApp (Oferecer Vantagem)
+                      <MessageCircle size={16} /> Chamar no WhatsApp (Enviar Link de Indicação)
                     </a>
                     <button
                       className="auc-delete-btn"
@@ -2329,14 +2646,59 @@ function LoginScreen({
     const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
     const existing = allUsers.find(u => cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') === cleanPhone)
 
+    // Verifica se há indicação pendente via URL (?ref=XYZ)
+    const pendingRef = sessionStorage.getItem('bn_pending_ref') || localStorage.getItem('bn_pending_ref')
+    let primaryUser: UserProfile | undefined
+    if (pendingRef && (!existing || !existing.referredBy)) {
+      primaryUser = allUsers.find(
+        u => u.referralCode?.toUpperCase() === pendingRef.toUpperCase() &&
+             cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
+      )
+    }
+
     const user: UserProfile = {
       id: existing?.id || crypto.randomUUID(),
       name: name.trim(),
       whatsapp: formatWhatsapp(whatsapp),
       cleanWhatsapp: cleanPhone,
       referralCode: existing?.referralCode || generateReferralCode(name),
-      createdAt: existing?.createdAt || new Date().toLocaleDateString('pt-BR')
+      createdAt: existing?.createdAt || new Date().toLocaleDateString('pt-BR'),
+      referredBy: existing?.referredBy || (primaryUser ? primaryUser.referralCode : undefined),
+      referredByName: existing?.referredByName || (primaryUser ? primaryUser.name : undefined),
+      referredByWhatsapp: existing?.referredByWhatsapp || (primaryUser ? primaryUser.whatsapp : undefined),
+      isVipPrimary: existing?.isVipPrimary || false,
+      vipExpiresAt: existing?.vipExpiresAt
     }
+
+    // Se este novo cadastro for fruto de indicação, atualiza o status do indicador primário
+    if (!existing?.referredBy && primaryUser) {
+      const primaryCleanPhone = cleanPhoneDigits(primaryUser.cleanWhatsapp || primaryUser.whatsapp || '')
+      const currentFriends = allUsers.filter(u => u.referredBy?.toUpperCase() === primaryUser!.referralCode?.toUpperCase())
+      const newFriendsCount = currentFriends.length + 1
+
+      if (newFriendsCount >= 10 && !primaryUser.isVipPrimary) {
+        primaryUser.isVipPrimary = true
+        const expires = new Date()
+        expires.setDate(expires.getDate() + 180)
+        primaryUser.vipExpiresAt = expires.toISOString()
+
+        const pIdx = allUsers.findIndex(u => cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') === primaryCleanPhone)
+        if (pIdx >= 0) {
+          allUsers[pIdx] = { ...primaryUser }
+          localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
+          fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: primaryUser })
+          }).catch(() => {})
+        }
+      }
+    }
+
+    try {
+      sessionStorage.removeItem('bn_pending_ref')
+      localStorage.removeItem('bn_pending_ref')
+    } catch {}
 
     onLogin(user)
   }
@@ -2433,6 +2795,73 @@ export default function App() {
     }
   })
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+
+  // 1. Captura código de indicação vindo da URL (?ref=XYZ ou ?r=XYZ)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const ref = params.get('ref') || params.get('r')
+      if (ref) {
+        const cleanRef = ref.trim().toUpperCase()
+        sessionStorage.setItem('bn_pending_ref', cleanRef)
+        localStorage.setItem('bn_pending_ref', cleanRef)
+      }
+    } catch {}
+  }, [])
+
+  // 2. Sincroniza usuários remotos salvos na API
+  useEffect(() => {
+    fetch('/api/users')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.users && Array.isArray(data.users)) {
+          const local = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+          const map = new Map<string, UserProfile>()
+          for (const u of local) {
+            const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
+            if (key) map.set(key, u)
+          }
+          for (const u of data.users) {
+            const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
+            if (key) {
+              const existing = map.get(key)
+              map.set(key, { ...existing, ...u })
+            }
+          }
+          const merged = Array.from(map.values())
+          localStorage.setItem('bn_all_users', JSON.stringify(merged))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // 3. Atualiza automaticamente status VIP de 10 amigos quando o usuário atingir a meta
+  useEffect(() => {
+    if (!currentUser) return
+    const all = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const myFriends = all.filter(u => u.referredBy?.toUpperCase() === currentUser.referralCode?.toUpperCase())
+    if (myFriends.length >= 10 && !currentUser.isVipPrimary) {
+      const expires = new Date()
+      expires.setDate(expires.getDate() + 180)
+      const updated: UserProfile = {
+        ...currentUser,
+        isVipPrimary: true,
+        vipExpiresAt: expires.toISOString()
+      }
+      setCurrentUser(updated)
+      localStorage.setItem('bn_current_user', JSON.stringify(updated))
+      const idx = all.findIndex(u => cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') === updated.cleanWhatsapp)
+      if (idx >= 0) {
+        all[idx] = updated
+        localStorage.setItem('bn_all_users', JSON.stringify(all))
+      }
+      fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: updated })
+      }).catch(() => {})
+    }
+  }, [currentUser])
 
   // Escuta alterações na URL para permitir login da administradora adicionando ?admin, /admin ou #admin
   useEffect(() => {
