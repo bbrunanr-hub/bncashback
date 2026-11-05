@@ -103,14 +103,24 @@ function mapCategoryCommission(categoryName, title) {
     return { name: 'Alimentos & Bebidas', icon: '🥫', rate: 0 };
   }
 
-  // 1. Moda, Beleza e Cuidados Pessoais, Calçados, Roupas, Bolsas, Esportes e Fitness (16% Venda Direta)
-  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(text)) {
-    return { name: 'Moda, Beleza & Esportes', icon: '👗', rate: 16 };
+  // Móveis e itens de Casa (12% Venda Direta) - Verifica ANTES de moda para não confundir 'guarda-roupa' com 'roupa'
+  if (/guarda[- ]?roupa|roupeiro|comoda|armario|sapateira|rack|painel|cabeceira|sofa|poltrona|estante|mesa|cadeira|cama|colchao|beliche|berco|aparador|buffet/i.test(text)) {
+    return { name: 'Casa, Móveis & Decoração', icon: '🏠', rate: 12 };
   }
 
-  // 3. Tecnologia e Eletrodomésticos: Celulares, Eletrônicos, Áudio e Vídeo, Informática, Câmeras (5% Venda Direta)
-  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|geladeira|fogao|microondas|lavadora|ar-condicionado|impressora/i.test(text)) {
+  // Eletrodomésticos (5% Venda Direta)
+  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador/i.test(text)) {
     return { name: 'Tecnologia & Eletrodomésticos', icon: '📱', rate: 5 };
+  }
+
+  // 3. Tecnologia e Eletrônicos (5% Venda Direta)
+  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|impressora/i.test(text)) {
+    return { name: 'Tecnologia & Eletrodomésticos', icon: '📱', rate: 5 };
+  }
+
+  // 1. Moda, Beleza e Cuidados Pessoais, Calçados, Roupas, Bolsas, Esportes e Fitness (16% Venda Direta)
+  if (/vestido|\broupa\b|\broupas\b|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(text)) {
+    return { name: 'Moda, Beleza & Esportes', icon: '👗', rate: 16 };
   }
 
   // 2. Casa, Móveis, Decoração, Construção, Ferramentas, Brinquedos, Bebês, Games, Joias, Relógios, Livros e Revistas, Acessórios para Veículos (12% Venda Direta)
@@ -120,7 +130,7 @@ function mapCategoryCommission(categoryName, title) {
   if (/ferramenta|furadeira|parafusadeira|serra|martelo|esmerilhadeira|chave|alicate|construcao|tinta/i.test(text)) {
     return { name: 'Ferramentas & Construção', icon: '🛠️', rate: 12 };
   }
-  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina/i.test(text)) {
+  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina|varal|lixeira/i.test(text)) {
     return { name: 'Casa, Móveis & Decoração', icon: '🏠', rate: 12 };
   }
   if (/brinquedo|bebe|infantil|carrinho|boneca|lego|game|jogos|jogo/i.test(text)) {

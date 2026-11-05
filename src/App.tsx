@@ -113,11 +113,17 @@ function detectCategory(url: string): CategoryCommission {
   if (/alimento|alimentos|bebida|bebidas|cerveja|vinho|whisky|refrigerante|cafe|arroz|feijao|azeite|supermercado/i.test(lower)) {
     return CATEGORIES.food
   }
-  if (/vestido|roupa|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(lower)) {
-    return CATEGORIES.fashion
+  // Móveis específicos (verifica antes de moda para não confundir 'guarda-roupa' com 'roupa')
+  if (/guarda[- ]?roupa|roupeiro|comoda|armario|sapateira|rack|painel|cabeceira|sofa|poltrona|estante|mesa|cadeira|cama|colchao|beliche|berco|aparador|buffet/i.test(lower)) {
+    return CATEGORIES.home
   }
-  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|eletrodomestico|geladeira|fogao|microondas|lavadora|ar-condicionado|impressora/i.test(lower)) {
+  // Eletrodomésticos & Tecnologia
+  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador|celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|impressora/i.test(lower)) {
     return CATEGORIES.electronics
+  }
+  // Moda, Beleza & Esportes
+  if (/vestido|\broupa\b|\broupas\b|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(lower)) {
+    return CATEGORIES.fashion
   }
   if (/livro|livros|revista|revistas|kam|key account|leitura|kindle/i.test(lower)) {
     return CATEGORIES.books
