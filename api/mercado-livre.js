@@ -46,7 +46,12 @@ async function getAccessToken(clientId, clientSecret) {
 
 function extractMlbId(rawUrl) {
   if (!rawUrl) return null;
-  const match = rawUrl.match(/MLB-?(\d+)/i);
+  // 1. pdp_filters=item_id:MLB12345678
+  const pdpMatch = rawUrl.match(/item_id:(MLB\d+)/i);
+  if (pdpMatch) return pdpMatch[1].toUpperCase();
+
+  // 2. /p/MLB12345 ou /up/MLBU12345 ou /MLB-12345
+  const match = rawUrl.match(/MLB[U]?-?(\d+)/i);
   return match ? `MLB${match[1]}` : null;
 }
 
@@ -55,31 +60,36 @@ function extractSlugTitle(rawUrl) {
     const parsed = new URL(rawUrl);
     const parts = parsed.pathname.split('/').filter(Boolean);
 
-    // Formato /nome-do-produto/p/MLB12345
-    const pIndex = parts.indexOf('p');
+    // 1. Formato /nome-do-produto/p/MLB... ou /nome-do-produto/up/MLBU...
+    const pIndex = parts.findIndex(p => p.toLowerCase() === 'p' || p.toLowerCase() === 'up');
     if (pIndex > 0) {
       const slug = parts[pIndex - 1];
       const cleaned = slug.replace(/-/g, ' ').trim();
-      if (cleaned) return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    }
-
-    // Formato /MLB-12345678-nome-do-produto-_JM ou /MLB12345678-nome
-    for (const part of parts) {
-      if (/MLB/i.test(part)) {
-        const cleaned = part
-          .replace(/^MLB-?\d+-?/i, '')
-          .replace(/-_JM$/i, '')
-          .replace(/-/g, ' ')
-          .trim();
-        if (cleaned) return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      if (cleaned && cleaned.length > 3) {
+        return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       }
     }
 
-    // Formato com slug mais longo
-    const longest = parts.reduce((acc, cur) => cur.length > acc.length ? cur : acc, '');
-    if (longest && longest.length > 5) {
-      const cleaned = longest.replace(/-/g, ' ').trim();
-      return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    // 2. Formato /MLB-12345678-nome-do-produto-_JM ou /MLB12345678-nome
+    for (const part of parts) {
+      if (/^MLB[U]?-?\d+$/i.test(part)) continue; // Ignora se for apenas o código numérico
+      if (/MLB/i.test(part)) {
+        const cleaned = part
+          .replace(/^MLB[U]?-?\d+-?/i, '')
+          .replace(/-_JM$/i, '')
+          .replace(/-/g, ' ')
+          .trim();
+        if (cleaned && cleaned.length > 3) {
+          return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+      }
+    }
+
+    // 3. Formato com qualquer slug que não seja 'p', 'up' ou ID
+    const textPart = parts.find(p => p !== 'p' && p !== 'up' && !/^MLB[U]?-?\d+$/i.test(p) && p.length > 5);
+    if (textPart) {
+      const cleaned = textPart.replace(/-/g, ' ').trim();
+      if (cleaned) return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
   } catch {}
   return 'Produto Mercado Livre';
@@ -255,7 +265,7 @@ export default async function handler(req, res) {
           });
           if (searchRes.ok) {
             const searchData = await searchRes.json();
-            const topProducts = (searchData.results || []).slice(0, 6);
+            const topProducts = (searchData.results || []).slice(0, 10);
 
             for (const matchedProd of topProducts) {
               if (productPrice) break;

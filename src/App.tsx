@@ -2226,7 +2226,7 @@ function MaintenancePage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 export default function App() {
   const [isMaintenance, setIsMaintenance] = useState(() => {
     const saved = localStorage.getItem('bn_site_maintenance')
-    return saved !== null ? saved === 'true' : true
+    return saved === 'true'
   })
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('home')
