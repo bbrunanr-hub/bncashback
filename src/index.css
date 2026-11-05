@@ -2494,51 +2494,65 @@ body {
   background: var(--bg-card);
   border: 1.5px solid #FED7AA;
   border-radius: var(--radius);
-  padding: 26px 20px;
+  padding: 24px 20px;
   box-shadow: 0 4px 20px rgba(249, 115, 22, 0.08);
   text-align: center;
-  margin-top: 6px;
-}
-
-.lwc-icon-badge {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #FFF7ED;
-  border: 2px solid #FED7AA;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 14px;
+  margin-top: 4px;
 }
 
 .lwc-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 900;
   color: var(--text);
-  margin-bottom: 6px;
-}
-
-.lwc-sub {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 600;
-  line-height: 1.45;
   margin-bottom: 20px;
+  letter-spacing: -0.3px;
 }
 
 .lwc-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 16px;
   text-align: left;
 }
 
-.lwc-sub-hint {
-  font-size: 11px;
-  color: #16a34a;
-  font-weight: 700;
-  margin-left: 6px;
+.form-group-clean {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label-clean {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+
+.form-input-clean {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid #E2E8F0;
+  background: #FFFFFF;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-input-clean:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+.form-input-clean::placeholder {
+  color: #94A3B8;
+  font-weight: 500;
+  font-size: 14px;
 }
 
 .login-submit-btn {
@@ -2546,14 +2560,15 @@ body {
   color: white;
   border: none;
   border-radius: 12px;
-  padding: 14px 20px;
+  height: 48px;
+  padding: 0 20px;
   font-family: 'Nunito', sans-serif;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
   transition: all 0.2s ease;
-  margin-top: 6px;
+  margin-top: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2565,7 +2580,7 @@ body {
 }
 
 .lwc-trust-list {
-  margin-top: 22px;
+  margin-top: 20px;
   padding: 14px 16px;
   background: #F8FAFC;
   border-radius: 12px;
@@ -2577,7 +2592,7 @@ body {
 }
 
 .lwc-trust-item {
-  font-size: 12px;
+  font-size: 12.5px;
   color: #475569;
   display: flex;
   align-items: center;
@@ -2589,27 +2604,5 @@ body {
   color: #16a34a;
   font-weight: 900;
   font-size: 14px;
-}
-
-.lwc-admin-link {
-  margin-top: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.lwc-admin-link button {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-weight: 800;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-  font-family: 'Nunito', sans-serif;
 }
 

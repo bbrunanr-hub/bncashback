@@ -312,8 +312,8 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
   if (!isOpen) return null
 
   const handleSave = () => {
-    if (!name.trim() || name.trim().length < 2) {
-      toast.error('Por favor, informe seu nome completo')
+    if (!name.trim()) {
+      toast.error('Por favor, informe seu nome')
       return
     }
     const cleanPhone = cleanPhoneDigits(whatsapp)
@@ -361,21 +361,16 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
         </div>
 
         <div className="modal-body">
-          <label className="form-label">Nome Completo *</label>
+          <label className="form-label">Nome *</label>
           <input
             type="text"
             className="form-input"
-            placeholder="Ex: Maria Eduarda Silva"
+            placeholder="Como quer ser chamado(a)?"
             value={name}
             onChange={e => setName(e.target.value)}
           />
 
-          <label className="form-label">
-            WhatsApp (com DDD) *
-            <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginLeft: 6 }}>
-              🟢 Contato para liberação de bônus
-            </span>
-          </label>
+          <label className="form-label">WhatsApp (com DDD) *</label>
           <input
             type="tel"
             className="form-input"
@@ -1291,14 +1286,16 @@ function SettingsPage({
     }
   }
 
+  const isAdminAuthenticated = typeof window !== 'undefined' && sessionStorage.getItem('bn_admin_auth') === 'true'
+
   const items = [
-    {
+    ...(isAdminAuthenticated ? [{
       icon: <Shield size={20} color="#EA580C" />,
       bg: '#FFF7ED',
       label: 'Painel da Administradora',
       sub: 'Gestão de saques PIX, comissões e lista de contatos WhatsApp',
       action: onOpenAdmin
-    },
+    }] : []),
     {
       icon: <User size={20} color="#3B82F6" />,
       bg: '#EFF6FF',
@@ -2290,21 +2287,37 @@ function MaintenancePage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   )
 }
 
+function isAdminUrl(): boolean {
+  try {
+    const search = window.location.search.toLowerCase()
+    const hash = window.location.hash.toLowerCase()
+    const path = window.location.pathname.toLowerCase()
+    return (
+      search.includes('admin') ||
+      search.includes('andim') ||
+      hash.includes('admin') ||
+      hash.includes('andim') ||
+      path.includes('admin') ||
+      path.includes('andim')
+    )
+  } catch {
+    return false
+  }
+}
+
 // ---- Login / Onboarding Gate Screen ----
 function LoginScreen({
-  onLogin,
-  onOpenAdmin
+  onLogin
 }: {
   onLogin: (user: UserProfile) => void
-  onOpenAdmin: () => void
 }) {
   const [name, setName] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || name.trim().length < 2) {
-      toast.error('Por favor, informe seu nome completo')
+    if (!name.trim()) {
+      toast.error('Por favor, informe seu nome')
       return
     }
     const cleanPhone = cleanPhoneDigits(whatsapp)
@@ -2331,18 +2344,11 @@ function LoginScreen({
   return (
     <div className="app-shell login-shell">
       <header className="app-header">
-        <div className="header-top-bar">
+        <div className="header-top-bar" style={{ justifyContent: 'center' }}>
           <div className="security-badge-header">
             <ShieldCheck size={14} color="#16a34a" />
             <span>App Seguro</span>
           </div>
-          <button
-            className="admin-header-btn"
-            onClick={onOpenAdmin}
-            title="Painel da Administradora"
-          >
-            <Shield size={14} />
-          </button>
         </div>
         <div className="header-logo-container">
           <div className="header-logo">
@@ -2358,35 +2364,26 @@ function LoginScreen({
       <main className="main-content" style={{ paddingBottom: 40 }}>
         <div className="page" style={{ paddingTop: 8 }}>
           <div className="login-welcome-card">
-            <div className="lwc-icon-badge">
-              <User size={30} color="var(--primary)" />
-            </div>
             <h2 className="lwc-title">Entrar no BNcashback</h2>
-            <p className="lwc-sub">
-              Informe seu nome e WhatsApp para ativar seu cashback exclusivo e acompanhar seu histórico individual.
-            </p>
 
             <form onSubmit={handleSubmit} className="lwc-form">
-              <div>
-                <label className="form-label">Seu Nome Completo *</label>
+              <div className="form-group-clean">
+                <label className="form-label-clean">Nome</label>
                 <input
                   type="text"
-                  className="form-input"
-                  placeholder="Ex: Maria Eduarda Silva"
+                  className="form-input-clean"
+                  placeholder="Como quer ser chamado(a)?"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   autoFocus
                 />
               </div>
 
-              <div>
-                <label className="form-label">
-                  WhatsApp com DDD *
-                  <span className="lwc-sub-hint">🟢 Aviso de saldo e saque</span>
-                </label>
+              <div className="form-group-clean">
+                <label className="form-label-clean">WhatsApp</label>
                 <input
                   type="tel"
-                  className="form-input"
+                  className="form-input-clean"
                   placeholder="(11) 98765-4321"
                   value={whatsapp}
                   onChange={e => setWhatsapp(formatWhatsapp(e.target.value))}
@@ -2404,16 +2401,11 @@ function LoginScreen({
                 <span className="lwc-check">✓</span> <strong>100% Gratuito</strong> — sem taxas ou cobranças
               </div>
               <div className="lwc-trust-item">
-                <span className="lwc-check">✓</span> <strong>Histórico Individual</strong> — cada um vê apenas suas compras
+                <span className="lwc-check">✓</span> <strong>Aviso de saldo e saque</strong>
               </div>
               <div className="lwc-trust-item">
                 <span className="lwc-check">✓</span> <strong>Saque via PIX</strong> — direto para sua conta
               </div>
-            </div>
-
-            <div className="lwc-admin-link">
-              <span>É a administradora do app?</span>
-              <button type="button" onClick={onOpenAdmin}>Acessar Painel Restrito</button>
             </div>
           </div>
         </div>
@@ -2429,7 +2421,9 @@ export default function App() {
     return saved === 'true'
   })
   const [isAdminOpen, setIsAdminOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>('home')
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    return isAdminUrl() ? 'admin' : 'home'
+  })
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('bn_current_user')
@@ -2439,6 +2433,22 @@ export default function App() {
     }
   })
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+
+  // Escuta alterações na URL para permitir login da administradora adicionando ?admin, /admin ou #admin
+  useEffect(() => {
+    const handleUrl = () => {
+      if (isAdminUrl()) {
+        setActiveTab('admin')
+      }
+    }
+    handleUrl()
+    window.addEventListener('popstate', handleUrl)
+    window.addEventListener('hashchange', handleUrl)
+    return () => {
+      window.removeEventListener('popstate', handleUrl)
+      window.removeEventListener('hashchange', handleUrl)
+    }
+  }, [])
 
   // Migração e limpeza preventiva: reseta compras legadas de teste sem usuário que estavam com status pending
   useEffect(() => {
@@ -2563,7 +2573,6 @@ export default function App() {
             handleSaveUser(user)
             toast.success(`Olá, ${user.name.split(' ')[0]}! Seu cashback está ativo 🎉`)
           }}
-          onOpenAdmin={() => setActiveTab('admin')}
         />
       </>
     )
@@ -2582,19 +2591,11 @@ export default function App() {
       <div className="app-shell">
         {/* Header */}
         <header className="app-header">
-          <div className="header-top-bar">
+          <div className="header-top-bar" style={{ justifyContent: 'center' }}>
             <div className="security-badge-header">
               <ShieldCheck size={14} color="#16a34a" />
               <span>App Seguro</span>
             </div>
-            {/* Atalho discreto de Admin */}
-            <button
-              className="admin-header-btn"
-              onClick={() => setActiveTab('admin')}
-              title="Painel da Administradora"
-            >
-              <Shield size={14} />
-            </button>
           </div>
           <div className="header-logo-container">
             <div className="header-logo">
@@ -2632,7 +2633,12 @@ export default function App() {
           )}
           {activeTab === 'admin' && (
             <AdminPage
-              onBack={() => setActiveTab('settings')}
+              onBack={() => {
+                try {
+                  window.history.replaceState({}, '', '/')
+                } catch {}
+                setActiveTab('home')
+              }}
               isMaintenance={isMaintenance}
               onToggleMaintenance={handleToggleMaintenance}
             />
