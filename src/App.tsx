@@ -434,13 +434,21 @@ function HomePage({
   const [currentPurchaseId, setCurrentPurchaseId] = useState('')
   const [hasNotifiedPurchase, setHasNotifiedPurchase] = useState(false)
 
-  // Load stats from localStorage
+  // Load stats from localStorage filtrados pelo usuário logado
   useEffect(() => {
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    const pending = purchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
+    const userPurchases = purchases.filter(p => {
+      if (!currentUser) return false
+      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+      if (currentClean && p.userWhatsapp) {
+        return cleanPhoneDigits(p.userWhatsapp) === currentClean
+      }
+      return Boolean(currentUser.name && p.userName === currentUser.name)
+    })
+    const pending = userPurchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
     setTotalPending(pending)
     setTotalFound(0) // Reseta na abertura: valor encontrado exibe o cashback do link gerado no momento
-  }, [])
+  }, [currentUser])
 
   const handlePaste = async () => {
     try {
@@ -912,23 +920,32 @@ function HomePage({
 }
 
 // ---- My Purchases Page ----
-function PurchasesPage() {
+function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
   const [purchases, setPurchases] = useState<Purchase[]>([])
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    setPurchases(data)
-  }, [])
+    const userPurchases = data.filter(p => {
+      if (!currentUser) return false
+      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+      if (currentClean && p.userWhatsapp) {
+        return cleanPhoneDigits(p.userWhatsapp) === currentClean
+      }
+      return Boolean(currentUser.name && p.userName === currentUser.name)
+    })
+    setPurchases(userPurchases)
+  }, [currentUser])
 
   const handleNotifyFromPurchases = (id: string) => {
-    const updated = purchases.map(p => {
+    const all = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    const updated = all.map(p => {
       if (p.id === id) {
         return { ...p, status: 'purchase_notified' as const }
       }
       return p
     })
-    setPurchases(updated)
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
+    setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'purchase_notified' as const } : p))
     toast.success('Compra informada! Aguardando o marketplace computar a venda. 🛍️')
   }
 
@@ -1029,9 +1046,25 @@ function BalancePage({
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const wData = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
-    setPurchases(data)
-    setWithdrawals(wData)
-  }, [])
+    const userPurchases = data.filter(p => {
+      if (!currentUser) return false
+      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+      if (currentClean && p.userWhatsapp) {
+        return cleanPhoneDigits(p.userWhatsapp) === currentClean
+      }
+      return Boolean(currentUser.name && p.userName === currentUser.name)
+    })
+    const userWithdrawals = wData.filter(w => {
+      if (!currentUser) return false
+      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+      if (currentClean && w.userWhatsapp) {
+        return cleanPhoneDigits(w.userWhatsapp) === currentClean
+      }
+      return Boolean(currentUser.name && w.userName === currentUser.name)
+    })
+    setPurchases(userPurchases)
+    setWithdrawals(userWithdrawals)
+  }, [currentUser])
 
   useEffect(() => {
     if (currentUser?.name && !pixName) {
@@ -1073,9 +1106,10 @@ function BalancePage({
       createdAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     }
 
-    const updated = [newRequest, ...withdrawals]
-    setWithdrawals(updated)
-    localStorage.setItem('bn_withdrawals', JSON.stringify(updated))
+    const allWithdrawals = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
+    allWithdrawals.unshift(newRequest)
+    localStorage.setItem('bn_withdrawals', JSON.stringify(allWithdrawals))
+    setWithdrawals(prev => [newRequest, ...prev])
     setIsWithdrawModalOpen(false)
     setPixKey('')
     setWithdrawAmount('')
@@ -1241,11 +1275,13 @@ function BalancePage({
 function SettingsPage({
   currentUser,
   onOpenRegister,
-  onOpenAdmin
+  onOpenAdmin,
+  onLogout
 }: {
   currentUser: UserProfile | null
   onOpenRegister: () => void
   onOpenAdmin: () => void
+  onLogout: () => void
 }) {
   const handleClearData = () => {
     if (confirm('Deseja apagar todo o histórico de compras? Esta ação não pode ser desfeita.')) {
@@ -1271,6 +1307,13 @@ function SettingsPage({
       action: onOpenRegister
     },
     {
+      icon: <LogOut size={20} color="#DC2626" />,
+      bg: '#FEF2F2',
+      label: 'Trocar Usuário / Sair',
+      sub: currentUser ? `Conectado como ${currentUser.name}` : 'Sair da conta atual',
+      action: onLogout
+    },
+    {
       icon: <Key size={20} color="#8B5CF6" />,
       bg: '#F5F3FF',
       label: 'Chave PIX',
@@ -1292,10 +1335,10 @@ function SettingsPage({
       action: () => toast.info('O BNcashback converte links de produtos do ML e Shopee em links com rastreamento de afiliado, gerando cashback para você!')
     },
     {
-      icon: <LogOut size={20} color="#EF4444" />,
+      icon: <Trash2 size={20} color="#EF4444" />,
       bg: '#FEF2F2',
       label: 'Limpar Histórico',
-      sub: 'Apagar compras e saques salvos',
+      sub: 'Apagar compras e saques salvos deste navegador',
       action: handleClearData
     },
   ]
@@ -1418,10 +1461,29 @@ function AdminPage({
     if (isAuth) setIsAuthenticated(true)
     const p = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
     const w = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
-    const u = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const localUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
     setPurchases(p)
     setWithdrawals(w)
-    setAllUsers(u)
+    setAllUsers(localUsers)
+
+    // Sincroniza usuários remotos salvos na API
+    fetch('/api/users')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.success && Array.isArray(data.users)) {
+          const remoteUsers = data.users as UserProfile[]
+          const merged = [...localUsers]
+          remoteUsers.forEach(ru => {
+            const clean = cleanPhoneDigits(ru.cleanWhatsapp || ru.whatsapp || '')
+            const exists = merged.some(lu => cleanPhoneDigits(lu.cleanWhatsapp || lu.whatsapp || '') === clean)
+            if (!exists) merged.unshift(ru)
+          })
+          setAllUsers(merged)
+          localStorage.setItem('bn_all_users', JSON.stringify(merged))
+        }
+      })
+      .catch(() => {})
+
     const savedId = localStorage.getItem('bn_ml_client_id') || '6686394200490654'
     const savedSecret = localStorage.getItem('bn_ml_client_secret') || 'Jjf0SlC5UD79ACry5O9xjXIiloQstOFK'
     setMlClientId(savedId)
@@ -2228,6 +2290,138 @@ function MaintenancePage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   )
 }
 
+// ---- Login / Onboarding Gate Screen ----
+function LoginScreen({
+  onLogin,
+  onOpenAdmin
+}: {
+  onLogin: (user: UserProfile) => void
+  onOpenAdmin: () => void
+}) {
+  const [name, setName] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || name.trim().length < 2) {
+      toast.error('Por favor, informe seu nome completo')
+      return
+    }
+    const cleanPhone = cleanPhoneDigits(whatsapp)
+    if (cleanPhone.length < 10) {
+      toast.error('Informe um WhatsApp válido com DDD (Ex: 11 98765-4321)')
+      return
+    }
+
+    const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+    const existing = allUsers.find(u => cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') === cleanPhone)
+
+    const user: UserProfile = {
+      id: existing?.id || crypto.randomUUID(),
+      name: name.trim(),
+      whatsapp: formatWhatsapp(whatsapp),
+      cleanWhatsapp: cleanPhone,
+      referralCode: existing?.referralCode || generateReferralCode(name),
+      createdAt: existing?.createdAt || new Date().toLocaleDateString('pt-BR')
+    }
+
+    onLogin(user)
+  }
+
+  return (
+    <div className="app-shell login-shell">
+      <header className="app-header">
+        <div className="header-top-bar">
+          <div className="security-badge-header">
+            <ShieldCheck size={14} color="#16a34a" />
+            <span>App Seguro</span>
+          </div>
+          <button
+            className="admin-header-btn"
+            onClick={onOpenAdmin}
+            title="Painel da Administradora"
+          >
+            <Shield size={14} />
+          </button>
+        </div>
+        <div className="header-logo-container">
+          <div className="header-logo">
+            <LogoIcon />
+            <div className="logo-text">
+              <span className="bn">BN</span><span className="cb">cashback</span>
+            </div>
+          </div>
+        </div>
+        <div className="header-tagline">Compre, ganhe cashback! 🎯</div>
+      </header>
+
+      <main className="main-content" style={{ paddingBottom: 40 }}>
+        <div className="page" style={{ paddingTop: 8 }}>
+          <div className="login-welcome-card">
+            <div className="lwc-icon-badge">
+              <User size={30} color="var(--primary)" />
+            </div>
+            <h2 className="lwc-title">Entrar no BNcashback</h2>
+            <p className="lwc-sub">
+              Informe seu nome e WhatsApp para ativar seu cashback exclusivo e acompanhar seu histórico individual.
+            </p>
+
+            <form onSubmit={handleSubmit} className="lwc-form">
+              <div>
+                <label className="form-label">Seu Nome Completo *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Maria Eduarda Silva"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="form-label">
+                  WhatsApp com DDD *
+                  <span className="lwc-sub-hint">🟢 Aviso de saldo e saque</span>
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="(11) 98765-4321"
+                  value={whatsapp}
+                  onChange={e => setWhatsapp(formatWhatsapp(e.target.value))}
+                  maxLength={15}
+                />
+              </div>
+
+              <button type="submit" className="login-submit-btn">
+                Entrar e Ativar Meu Cashback 🚀
+              </button>
+            </form>
+
+            <div className="lwc-trust-list">
+              <div className="lwc-trust-item">
+                <span className="lwc-check">✓</span> <strong>100% Gratuito</strong> — sem taxas ou cobranças
+              </div>
+              <div className="lwc-trust-item">
+                <span className="lwc-check">✓</span> <strong>Histórico Individual</strong> — cada um vê apenas suas compras
+              </div>
+              <div className="lwc-trust-item">
+                <span className="lwc-check">✓</span> <strong>Saque via PIX</strong> — direto para sua conta
+              </div>
+            </div>
+
+            <div className="lwc-admin-link">
+              <span>É a administradora do app?</span>
+              <button type="button" onClick={onOpenAdmin}>Acessar Painel Restrito</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
 // ---- Main App ----
 export default function App() {
   const [isMaintenance, setIsMaintenance] = useState(() => {
@@ -2236,8 +2430,36 @@ export default function App() {
   })
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('home')
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('bn_current_user')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+
+  // Migração e limpeza preventiva: reseta compras legadas de teste sem usuário que estavam com status pending
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('bn_purchases')
+      if (raw) {
+        const parsed = JSON.parse(raw) as Purchase[]
+        let modified = false
+        const cleaned = parsed.map(p => {
+          if (p.status === 'pending' && !p.userWhatsapp) {
+            modified = true
+            return { ...p, status: 'link_created' as PurchaseStatus }
+          }
+          return p
+        })
+        if (modified) {
+          localStorage.setItem('bn_purchases', JSON.stringify(cleaned))
+        }
+      }
+    } catch {}
+  }, [])
 
   const handleToggleMaintenance = () => {
     const next = !isMaintenance
@@ -2250,27 +2472,34 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem('bn_current_user')
-    if (saved) {
-      try {
-        setCurrentUser(JSON.parse(saved))
-      } catch {}
-    }
-  }, [])
-
   const handleSaveUser = (user: UserProfile) => {
     setCurrentUser(user)
     localStorage.setItem('bn_current_user', JSON.stringify(user))
 
     const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
-    const existingIndex = allUsers.findIndex(u => u.id === user.id || u.cleanWhatsapp === user.cleanWhatsapp)
+    const existingIndex = allUsers.findIndex(u => u.id === user.id || cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') === user.cleanWhatsapp)
     if (existingIndex >= 0) {
-      allUsers[existingIndex] = user
+      allUsers[existingIndex] = { ...allUsers[existingIndex], ...user }
     } else {
       allUsers.unshift(user)
     }
     localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
+
+    // Sincroniza em background com a API /api/users
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user })
+    }).catch(() => {})
+  }
+
+  const handleLogout = () => {
+    if (confirm('Deseja realmente sair da sua conta? Você poderá entrar novamente digitando seu WhatsApp.')) {
+      setCurrentUser(null)
+      localStorage.removeItem('bn_current_user')
+      setActiveTab('home')
+      toast.info('Você saiu da sua conta.')
+    }
   }
 
   // Se o site estiver em manutenção e não for a tela de admin
@@ -2324,6 +2553,22 @@ export default function App() {
     )
   }
 
+  // Se o usuário ainda não logou / se identificou e não estiver abrindo o painel de admin
+  if (!currentUser && activeTab !== 'admin') {
+    return (
+      <>
+        <Toaster position="top-center" richColors />
+        <LoginScreen
+          onLogin={(user) => {
+            handleSaveUser(user)
+            toast.success(`Olá, ${user.name.split(' ')[0]}! Seu cashback está ativo 🎉`)
+          }}
+          onOpenAdmin={() => setActiveTab('admin')}
+        />
+      </>
+    )
+  }
+
   const navItems = [
     { id: 'home' as Tab, icon: <Home size={22} />, label: 'Início' },
     { id: 'purchases' as Tab, icon: <ShoppingBag size={22} />, label: 'Minhas Compras' },
@@ -2340,7 +2585,7 @@ export default function App() {
           <div className="header-top-bar">
             <div className="security-badge-header">
               <ShieldCheck size={14} color="#16a34a" />
-              <span>App totalmente seguro</span>
+              <span>App Seguro</span>
             </div>
             {/* Atalho discreto de Admin */}
             <button
@@ -2370,7 +2615,7 @@ export default function App() {
               onOpenRegister={() => setIsRegisterModalOpen(true)}
             />
           )}
-          {activeTab === 'purchases' && <PurchasesPage />}
+          {activeTab === 'purchases' && <PurchasesPage currentUser={currentUser} />}
           {activeTab === 'balance' && (
             <BalancePage
               currentUser={currentUser}
@@ -2382,6 +2627,7 @@ export default function App() {
               currentUser={currentUser}
               onOpenRegister={() => setIsRegisterModalOpen(true)}
               onOpenAdmin={() => setActiveTab('admin')}
+              onLogout={handleLogout}
             />
           )}
           {activeTab === 'admin' && (
