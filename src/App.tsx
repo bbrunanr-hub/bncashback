@@ -119,36 +119,51 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
 function detectCategory(url: string): CategoryCommission {
   const lower = url.toLowerCase()
 
-  if (/alimento|alimentos|bebida|bebidas|cerveja|vinho|whisky|refrigerante|cafe|arroz|feijao|azeite|supermercado/i.test(lower)) {
+  // 1. Alimentos e Bebidas (0% Mercado Livre)
+  if (/alimento|alimentos|bebida|bebidas|cerveja|vinho|whisky|refrigerante|cafe|arroz|feijao|azeite|supermercado|chocolate|doce|salgadinho|capsula|suco|leite/i.test(lower)) {
     return CATEGORIES.food
   }
-  // Móveis específicos (verifica antes de moda para não confundir 'guarda-roupa' com 'roupa')
+
+  // 2. Acessórios para Veículos (12% Mercado Livre / 4,8% usuário)
+  if (/retrovisor|espelho|carro|carros|moto|motos|automotivo|veiculo|veiculos|farol|farois|lampada|pneu|pneus|oleo|filtro|palheta|amortecedor|freio|escapamento|parachoque|volante|calota|engate|rastreador|alarme|capacete|som-automotivo|central-multimidia|insulfilm|chaveiro-carro|tapete-carro/i.test(lower)) {
+    return CATEGORIES.auto
+  }
+
+  // 3. Móveis específicos de Casa (12% Mercado Livre / 4,8% usuário) - Verifica antes de moda
   if (/guarda[- ]?roupa|roupeiro|comoda|armario|sapateira|rack|painel|cabeceira|sofa|poltrona|estante|mesa|cadeira|cama|colchao|beliche|berco|aparador|buffet/i.test(lower)) {
     return CATEGORIES.home
   }
-  // Eletrodomésticos & Tecnologia
-  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador|celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|tv|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|xbox|nintendo|tablet|camera|cameras|impressora/i.test(lower)) {
+
+  // 4. Tecnologia e Eletrodomésticos (5% Mercado Livre / 2,0% usuário)
+  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador|celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|smart-tv|\btv\b|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|ps4|ps5|xbox|nintendo|tablet|ipad|camera|cameras|impressora|roteador|modem|powerbank|carregador|smartwatch/i.test(lower)) {
     return CATEGORIES.electronics
   }
-  // Moda, Beleza & Esportes
-  if (/vestido|\broupa\b|\broupas\b|calcado|tenis|sapato|sandalia|camisa|camiseta|calca|bermuda|moda|beleza|perfume|maquiagem|cosmetico|skincare|cabelo|bolsa|bolsas|esporte|fitness|academia|bicicleta|patins|whey|creatina|suplemento|chuteira|legging|treino/i.test(lower)) {
+
+  // 5. Moda, Beleza & Esportes (16% Mercado Livre / 6,4% usuário)
+  if (/vestido|\broupa\b|\broupas\b|calcado|tenis|sapato|sandalia|bota|camisa|camiseta|calca|bermuda|short|moda|lingerie|sutia|cueca|bolsa|bolsas|mochila|mala|carteira|beleza|perfume|maquiagem|batom|rimel|cosmetico|skincare|protetor-solar|hidratante|shampoo|condicionador|cabelo|secador|prancha|barbeador|esporte|fitness|academia|musculacao|bicicleta|bike|patins|skate|chuteira|legging|treino|suplemento|whey|creatina|bcaa/i.test(lower)) {
     return CATEGORIES.fashion
   }
-  if (/livro|livros|revista|revistas|kam|key account|leitura|kindle/i.test(lower)) {
+
+  // 6. Livros & Revistas (12% Mercado Livre / 4,8% usuário)
+  if (/livro|livros|revista|revistas|kam|key account|leitura|kindle|apostila|manga|hqs/i.test(lower)) {
     return CATEGORIES.books
   }
-  if (/ferramenta|furadeira|parafusadeira|serra|martelo|esmerilhadeira|chave|alicate|construcao|tinta/i.test(lower)) {
+
+  // 7. Ferramentas & Construção (12% Mercado Livre / 4,8% usuário)
+  if (/ferramenta|ferramentas|furadeira|parafusadeira|serra|tico-tico|martelete|martelo|esmerilhadeira|lixadeira|chave|alicate|trena|nivel|construcao|tinta|torneira|chuveiro|fechadura|escada/i.test(lower)) {
     return CATEGORIES.tools
   }
-  if (/brinquedo|bebe|infantil|carrinho|boneca|lego|game|jogos|jogo/i.test(lower)) {
+
+  // 8. Brinquedos, Bebês & Games (12% Mercado Livre / 4,8% usuário)
+  if (/brinquedo|brinquedos|bebe|bebes|infantil|carrinho-bebe|boneca|boneco|lego|game|games|jogo/i.test(lower)) {
     return CATEGORIES.toys_sports
   }
-  if (/carro|moto|pneu|oleo|automotivo|veiculo|peca|capacete/i.test(lower)) {
-    return CATEGORIES.auto
-  }
-  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|moveis|sofa|cama|mesa|banho|colchao|luminaria|tapete|cortina|joia|relogio|bijuteria/i.test(lower)) {
+
+  // 9. Casa, Decoração, Cozinha, Joias & Relógios (12% Mercado Livre / 4,8% usuário)
+  if (/casa|cozinha|panela|airfryer|fritadeira|decoracao|luminaria|tapete|cortina|abajur|lustre|lixeira|varal|edredom|lencol|travesseiro|banho|toalha|joia|relogio|bijuteria|anel|colar|pulseira/i.test(lower)) {
     return CATEGORIES.home
   }
+
   return CATEGORIES.general
 }
 
@@ -939,7 +954,7 @@ function HomePage({
         <div className="result-card blue">
           <div className="result-card-header">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" strokeWidth="1.5"/><path d="M5 7h4M7 5v4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            Valor Encontrado
+            {totalFound > 0 ? 'Valor Encontrado' : 'Cashback Estimado'}
           </div>
           <div className="result-card-value">
             {totalFound > 0 ? formatCurrency(totalFound) : (processState === 'done' && cashbackRatePct ? `${cashbackRatePct} de volta` : 'R$ 0,00')}
@@ -1730,6 +1745,101 @@ function AdminPage({
     message: 'Credenciais oficiais do Mercado Livre ativas e conectadas! 🚀'
   })
 
+  // Estado e Controle do Modal de Computar Venda com Valor Real
+  const [computeModalPurchase, setComputeModalPurchase] = useState<Purchase | null>(null)
+  const [computeProductName, setComputeProductName] = useState('')
+  const [computePrice, setComputePrice] = useState('')
+  const [computeCategoryRate, setComputeCategoryRate] = useState<number>(12)
+  const [computeExactCommission, setComputeExactCommission] = useState('')
+
+  const openComputeModal = (p: Purchase) => {
+    setComputeModalPurchase(p)
+    setComputeProductName(p.productName || 'Produto')
+    setComputePrice(p.price > 0 ? p.price.toString() : '')
+
+    let initialRate = 12
+    if (p.categoryName?.includes('Moda') || p.categoryName?.includes('Beleza') || p.categoryName?.includes('Esportes')) {
+      initialRate = 16
+    } else if (p.categoryName?.includes('Tecnologia') || p.categoryName?.includes('Eletro')) {
+      initialRate = 5
+    } else if (p.categoryName?.includes('Alimentos')) {
+      initialRate = 0
+    }
+    setComputeCategoryRate(initialRate)
+    setComputeExactCommission(p.totalCommission > 0 ? p.totalCommission.toFixed(2) : '')
+  }
+
+  const parsedPrice = parseFloat(computePrice.replace(',', '.')) || 0
+  const parsedExactCommission = parseFloat(computeExactCommission.replace(',', '.'))
+  const totalCommissionVal = !isNaN(parsedExactCommission) && parsedExactCommission > 0
+    ? parsedExactCommission
+    : (parsedPrice * computeCategoryRate) / 100
+
+  const hasPrimaryForModal = Boolean(computeModalPurchase?.primaryUserWhatsapp)
+  const ownerSharePct = hasPrimaryForModal ? 0.50 : 0.60
+  const ownerProfitVal = totalCommissionVal * ownerSharePct
+  const primaryBonusVal = hasPrimaryForModal ? totalCommissionVal * 0.10 : 0
+  const buyerCashbackVal = totalCommissionVal * 0.40
+
+  const handleSaveComputeSale = async () => {
+    if (!computeModalPurchase) return
+    if (totalCommissionVal <= 0) {
+      toast.error('Informe o valor da compra ou da comissão recebida no marketplace.')
+      return
+    }
+
+    const updatedPurchase: Purchase = {
+      ...computeModalPurchase,
+      productName: computeProductName.trim() || computeModalPurchase.productName,
+      price: parsedPrice > 0 ? parsedPrice : (computeCategoryRate > 0 ? totalCommissionVal / (computeCategoryRate / 100) : 0),
+      totalCommission: totalCommissionVal,
+      ownerProfit: ownerProfitVal,
+      cashback: buyerCashbackVal,
+      primaryBonusAmount: primaryBonusVal,
+      status: 'pending' // entra no Saldo Aguardando!
+    }
+
+    let bonusToInsert: Purchase | null = null
+    if (hasPrimaryForModal && primaryBonusVal > 0) {
+      const bonusId = `bonus-${updatedPurchase.id}`
+      bonusToInsert = {
+        id: bonusId,
+        platform: updatedPurchase.platform,
+        productName: `Bônus Indicação (10%): Compra de ${updatedPurchase.userName || 'Amigo Indicado'}`,
+        originalLink: updatedPurchase.originalLink,
+        affiliateLink: updatedPurchase.affiliateLink,
+        price: updatedPurchase.price,
+        totalCommission: updatedPurchase.totalCommission,
+        ownerProfit: updatedPurchase.ownerProfit,
+        cashback: primaryBonusVal,
+        cashbackRatePct: '10% Bônus',
+        categoryName: updatedPurchase.categoryName,
+        categoryIcon: '🎁',
+        status: 'pending',
+        date: new Date().toLocaleDateString('pt-BR'),
+        userName: updatedPurchase.primaryUserName,
+        userWhatsapp: updatedPurchase.primaryUserWhatsapp,
+        isReferralBonus: true,
+        referredBuyerName: updatedPurchase.userName || 'Amigo Indicado'
+      }
+    }
+
+    const nextPurchases = purchases.map(p => p.id === updatedPurchase.id ? updatedPurchase : p)
+    if (bonusToInsert) {
+      const bIdx = nextPurchases.findIndex(p => p.id === bonusToInsert!.id)
+      if (bIdx >= 0) nextPurchases[bIdx] = bonusToInsert
+      else nextPurchases.unshift(bonusToInsert)
+      await cloudSavePurchase(bonusToInsert)
+    }
+
+    await cloudSavePurchase(updatedPurchase)
+    setPurchases(nextPurchases)
+    localStorage.setItem('bn_purchases', JSON.stringify(nextPurchases))
+    setComputeModalPurchase(null)
+
+    toast.success(`Venda computada! ${formatCurrency(buyerCashbackVal)} adicionado ao Saldo Aguardando de ${updatedPurchase.userName || 'Usuário'}. 💰`)
+  }
+
   const loadCloudData = async (showToast = false) => {
     setIsRefreshing(true)
     try {
@@ -1856,64 +1966,6 @@ function AdminPage({
       cloudSaveWithdrawal(targetWithdrawal).catch(() => {})
     }
     toast.success('Saque marcado como PAGO via PIX! ✅')
-  }
-
-  const handleComputeSale = (purchaseId: string) => {
-    let bonusToInsert: Purchase | null = null
-    let targetPurchase: Purchase | null = null
-    const target = purchases.find(p => p.id === purchaseId)
-
-    // Se a venda possuir indicador primário com bônus, gera o registro de bônus no saldo aguardando dele
-    if (target && target.primaryUserWhatsapp && (target.primaryBonusAmount || 0) > 0) {
-      const bonusId = `bonus-${target.id}`
-      const alreadyExists = purchases.some(p => p.id === bonusId)
-      if (!alreadyExists) {
-        bonusToInsert = {
-          id: bonusId,
-          platform: target.platform,
-          productName: `Bônus Indicação (10%): Compra de ${target.userName || 'Amigo Indicado'}`,
-          originalLink: target.originalLink,
-          affiliateLink: target.affiliateLink,
-          price: target.price,
-          totalCommission: target.totalCommission,
-          ownerProfit: target.ownerProfit,
-          cashback: target.primaryBonusAmount || 0,
-          cashbackRatePct: '10% Bônus',
-          categoryName: target.categoryName,
-          categoryIcon: '🎁',
-          status: 'pending', // Entra no Saldo Aguardando do indicador primário!
-          date: new Date().toLocaleDateString('pt-BR'),
-          userName: target.primaryUserName,
-          userWhatsapp: target.primaryUserWhatsapp,
-          isReferralBonus: true,
-          referredBuyerName: target.userName || 'Amigo Indicado'
-        }
-      }
-    }
-
-    const updated = purchases.map(p => {
-      if (p.id === purchaseId) {
-        targetPurchase = { ...p, status: 'pending' as const }
-        return targetPurchase
-      }
-      return p
-    })
-
-    if (bonusToInsert) {
-      updated.unshift(bonusToInsert)
-      cloudSavePurchase(bonusToInsert).catch(() => {})
-    }
-    if (targetPurchase) {
-      cloudSavePurchase(targetPurchase).catch(() => {})
-    }
-
-    setPurchases(updated)
-    localStorage.setItem('bn_purchases', JSON.stringify(updated))
-    toast.success(
-      target?.primaryUserWhatsapp
-        ? `Venda computada! 40% creditado ao comprador e 10% creditado ao indicador (${target.primaryUserName}). 💰`
-        : 'Venda computada do marketplace! Valor adicionado ao Saldo Aguardando do usuário. 💰'
-    )
   }
 
   const handleApproveCommission = (purchaseId: string) => {
@@ -2359,7 +2411,7 @@ function AdminPage({
                         </span>
                         <button
                           className="as-compute-btn"
-                          onClick={() => handleComputeSale(p.id)}
+                          onClick={() => openComputeModal(p)}
                         >
                           <CheckCircle size={14} /> Computar Venda
                         </button>
@@ -2373,9 +2425,9 @@ function AdminPage({
                         </span>
                         <button
                           className="as-compute-btn primary"
-                          onClick={() => handleComputeSale(p.id)}
+                          onClick={() => openComputeModal(p)}
                         >
-                          <CheckCircle size={14} /> Confirmar Venda Computada
+                          <CheckCircle size={14} /> Confirmar & Computar Venda
                         </button>
                       </>
                     )}
@@ -2385,24 +2437,159 @@ function AdminPage({
                         <span className="as-status pending">
                           ⏳ Venda Computada (Saldo Aguardando 60 dias)
                         </span>
-                        <button
-                          className="as-approve-btn"
-                          onClick={() => handleApproveCommission(p.id)}
-                        >
-                          🎉 Liberar para Saque PIX
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="as-edit-btn"
+                            onClick={() => openComputeModal(p)}
+                            title="Ajustar valor da comissão ou produto"
+                          >
+                            <Edit3 size={13} /> Editar Valor
+                          </button>
+                          <button
+                            className="as-approve-btn"
+                            onClick={() => handleApproveCommission(p.id)}
+                          >
+                            🎉 Liberar para Saque PIX
+                          </button>
+                        </div>
                       </>
                     )}
 
                     {p.status === 'approved' && (
-                      <span className="as-status approved">
-                        Status: Liberado para Saque PIX ✅
-                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="as-status approved">
+                          Status: Liberado para Saque PIX ✅
+                        </span>
+                        <button
+                          className="as-edit-btn"
+                          onClick={() => openComputeModal(p)}
+                          title="Ajustar valor"
+                        >
+                          <Edit3 size={13} /> Editar
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
               )
             })
+          )}
+
+          {/* Modal de Computar Venda com Valor Real */}
+          {computeModalPurchase && (
+            <div className="modal-overlay" onClick={() => setComputeModalPurchase(null)}>
+              <div className="compute-modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <div className="modal-title">
+                    <ShoppingBag size={18} color="var(--primary)" />
+                    Computar Venda do Marketplace
+                  </div>
+                  <button className="modal-close-btn" onClick={() => setComputeModalPurchase(null)}>✕</button>
+                </div>
+
+                <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.4' }}>
+                  Comprador: <strong>{computeModalPurchase.userName || 'Usuário'}</strong> {computeModalPurchase.userWhatsapp ? `(${computeModalPurchase.userWhatsapp})` : ''}
+                  {computeModalPurchase.primaryUserName && (
+                    <div style={{ color: '#6D28D9', marginTop: 3 }}>
+                      ⭐ Indicado por: <strong>{computeModalPurchase.primaryUserName}</strong> (Bônus 10% ativo)
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="form-label">Nome do Produto</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={computeProductName}
+                    onChange={e => setComputeProductName(e.target.value)}
+                    placeholder="Ex: Espelho Retrovisor do Carro"
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="form-label">Valor da Compra (R$)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={computePrice}
+                      onChange={e => {
+                        setComputePrice(e.target.value)
+                        setComputeExactCommission('')
+                      }}
+                      placeholder="Ex: 75,00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Categoria / Taxa</label>
+                    <select
+                      className="form-input"
+                      value={computeCategoryRate}
+                      onChange={e => {
+                        setComputeCategoryRate(Number(e.target.value))
+                        setComputeExactCommission('')
+                      }}
+                    >
+                      <option value={16}>Moda/Beleza (16%)</option>
+                      <option value={12}>Casa/Veículos/Outros (12%)</option>
+                      <option value={5}>Tecnologia (5%)</option>
+                      <option value={0}>Alimentos (0%)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    OU Comissão Exata Recebida (R$)
+                    <span style={{ fontSize: '11px', fontWeight: 'normal', color: '#64748B', marginLeft: 4 }}>
+                      (do painel do Mercado Livre)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={computeExactCommission}
+                    onChange={e => setComputeExactCommission(e.target.value)}
+                    placeholder="Ex: 9,00"
+                  />
+                </div>
+
+                {/* Simulação em tempo real da divisão */}
+                <div className="compute-calc-box">
+                  <div className="compute-calc-row">
+                    <span style={{ color: '#475569' }}>Total Comissão Marketplace:</span>
+                    <strong style={{ color: '#1E293B' }}>{formatCurrency(totalCommissionVal)}</strong>
+                  </div>
+                  <div className="compute-calc-row">
+                    <span style={{ color: '#16A34A', fontWeight: 700 }}>
+                      {hasPrimaryForModal ? 'Seu Lucro (50%):' : 'Seu Lucro (60%):'}
+                    </span>
+                    <strong style={{ color: '#16A34A' }}>{formatCurrency(ownerProfitVal)}</strong>
+                  </div>
+                  {hasPrimaryForModal && (
+                    <div className="compute-calc-row">
+                      <span style={{ color: '#6D28D9', fontWeight: 700 }}>Bônus Indicador (10%):</span>
+                      <strong style={{ color: '#6D28D9' }}>{formatCurrency(primaryBonusVal)}</strong>
+                    </div>
+                  )}
+                  <div className="compute-calc-row highlight">
+                    <span style={{ color: '#2563EB' }}>Cashback Comprador (40%):</span>
+                    <strong style={{ color: '#2563EB', fontSize: '15px' }}>{formatCurrency(buyerCashbackVal)}</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="generate-btn"
+                  style={{ marginTop: 4 }}
+                  onClick={handleSaveComputeSale}
+                >
+                  <CheckCircle size={17} /> Salvar e Creditar no Saldo Aguardando
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}

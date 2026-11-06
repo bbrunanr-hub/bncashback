@@ -2017,6 +2017,61 @@ body {
 }
 .as-compute-btn:hover { opacity: 0.9; }
 
+.as-edit-btn {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+.as-edit-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+/* Modal de Computar Venda no Admin */
+.compute-modal-card {
+  background: white;
+  width: 92%;
+  max-width: 440px;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compute-calc-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compute-calc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.compute-calc-row.highlight {
+  border-top: 1px dashed #CBD5E1;
+  padding-top: 6px;
+  font-weight: 800;
+}
+
 /* ---- Maintenance Page ---- */
 .maintenance-container {
   min-height: 100vh;

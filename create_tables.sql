@@ -67,3 +67,4 @@ CREATE POLICY "Public access for bn_withdrawals" ON public.bn_withdrawals FOR AL
 GRANT ALL ON public.bn_users TO anon, authenticated, service_role;
 GRANT ALL ON public.bn_purchases TO anon, authenticated, service_role;
 GRANT ALL ON public.bn_withdrawals TO anon, authenticated, service_role;
+

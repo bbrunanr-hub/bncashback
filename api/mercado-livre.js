@@ -136,7 +136,7 @@ function mapCategoryCommission(categoryName, title) {
   if (/brinquedo|bebe|infantil|carrinho|boneca|lego|game|jogos|jogo/i.test(text)) {
     return { name: 'Brinquedos, Bebês & Games', icon: '🧸', rate: 12 };
   }
-  if (/carro|moto|pneu|oleo|automotivo|veiculo|peca|capacete/i.test(text)) {
+  if (/carro|moto|pneu|oleo|automotivo|veiculo|peca|capacete|retrovisor|espelho|farol|palheta|amortecedor|escapamento|volante/i.test(text)) {
     return { name: 'Acessórios para Veículos', icon: '🚗', rate: 12 };
   }
   if (/joia|relogio|bijuteria/i.test(text)) {
