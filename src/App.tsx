@@ -111,7 +111,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Casa, Variedades & Outros',
     icon: '📦',
     mlCommission: 12, // Padrão Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 8,
+    shopeeCommission: 3, // Padrão Shopee Afiliados: 3% (1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
 }
@@ -296,22 +296,6 @@ function detectPlatform(url: string): Platform | null {
 
 function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace('.', ',')}`
-}
-
-function parsePrice(str: string): number {
-  if (!str) return 0
-  let clean = str.replace(/[^\d.,]/g, '').trim()
-  if (clean.includes(',') && clean.includes('.')) {
-    if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
-      clean = clean.replace(/\./g, '').replace(',', '.')
-    } else {
-      clean = clean.replace(/,/g, '')
-    }
-  } else if (clean.includes(',')) {
-    clean = clean.replace(',', '.')
-  }
-  const val = parseFloat(clean)
-  return isNaN(val) ? 0 : val
 }
 
 // ---- Logo SVG ----
@@ -504,7 +488,6 @@ function HomePage({
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
   const [productTitle, setProductTitle] = useState('')
-  const [productPriceInput, setProductPriceInput] = useState('')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
@@ -558,7 +541,6 @@ function HomePage({
 
       // Reseta valores anteriores ao colar novo link
       setTotalFound(0)
-      setProductPriceInput('')
       setAffiliateLink('')
       setCashbackAmount(0)
       setProcessState('idle')
@@ -583,7 +565,6 @@ function HomePage({
   const handleClear = () => {
     setLinkInput('')
     setProductTitle('')
-    setProductPriceInput('')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
@@ -651,7 +632,6 @@ function HomePage({
             setAffiliateLink(apiData.affiliateLink)
             setCashbackAmount(apiData.cashback)
             setTotalFound(apiData.cashback)
-            setProductPriceInput(price.toFixed(2).replace('.', ','))
             setProductTitle(apiData.title)
             setProcessState('done')
 
@@ -722,7 +702,6 @@ function HomePage({
     setAffiliateLink(generated)
     setCashbackAmount(0)
     setTotalFound(0)
-    setProductPriceInput('')
     setProcessState('done')
 
     const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
@@ -800,60 +779,12 @@ function HomePage({
   const handleReset = () => {
     setLinkInput('')
     setProductTitle('')
-    setProductPriceInput('')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
     setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
-  }
-
-  const handlePriceInputChange = (val: string) => {
-    setProductPriceInput(val)
-    const num = parsePrice(val)
-    if (num > 0) {
-      const activeMktRate = platform === 'ml' ? detectedCategory.mlCommission : detectedCategory.shopeeCommission
-      const userPct = activeMktRate * USER_COMMISSION_SHARE
-      const calculatedCashback = (num * userPct) / 100
-      const calculatedTotalCommission = (num * activeMktRate) / 100
-
-      setCashbackAmount(calculatedCashback)
-      setTotalFound(calculatedCashback)
-
-      if (currentPurchaseId) {
-        const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-        const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
-        const eligiblePrimary = getEligiblePrimaryUser(currentUser, allUsers)
-        const ownerProfit = eligiblePrimary ? (calculatedTotalCommission * OWNER_VIP_COMMISSION_SHARE) : (calculatedTotalCommission * OWNER_COMMISSION_SHARE)
-        const primaryBonusAmount = eligiblePrimary ? (calculatedTotalCommission * PRIMARY_BONUS_COMMISSION_SHARE) : 0
-
-        const updated = purchases.map(p => {
-          if (p.id === currentPurchaseId) {
-            const up: Purchase = {
-              ...p,
-              price: num,
-              totalCommission: calculatedTotalCommission,
-              ownerProfit,
-              cashback: calculatedCashback,
-              primaryBonusAmount
-            }
-            cloudSavePurchase(up).catch(() => { })
-            fetch('/api/purchases', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ purchase: up })
-            }).catch(() => { })
-            return up
-          }
-          return p
-        })
-        localStorage.setItem('bn_purchases', JSON.stringify(updated))
-      }
-    } else {
-      setCashbackAmount(0)
-      setTotalFound(0)
-    }
   }
 
   // Contagem de amigos cadastrados pelo link deste usuário
@@ -1073,40 +1004,6 @@ function HomePage({
               <div className="user-cashback-badge">
                 💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> {cashbackAmount > 0 ? `(${formatCurrency(cashbackAmount)})` : ''}
               </div>
-
-              {/* Simulador rápido e direto de valor em Reais */}
-              <div className="cashback-inline-sim">
-                <div className="cis-header">
-                  <span className="cis-title">💵 Quer ver seu cashback exato em Reais?</span>
-                  <span className="cis-sub">Preço do produto:</span>
-                </div>
-                <div className="cis-input-row">
-                  <span className="cis-prefix">R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="cis-input"
-                    placeholder="Ex: 154,00"
-                    value={productPriceInput}
-                    onChange={e => handlePriceInputChange(e.target.value)}
-                  />
-                  {productPriceInput && (
-                    <button
-                      type="button"
-                      className="cis-clear-btn"
-                      onClick={() => handlePriceInputChange('')}
-                      title="Limpar valor"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {cashbackAmount > 0 && (
-                  <div className="cis-feedback">
-                    🎉 Você vai receber: <strong>{formatCurrency(cashbackAmount)} de volta</strong> ({cashbackRatePct})!
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="link-input-wrap">
@@ -1141,20 +1038,34 @@ function HomePage({
               </div>
             </div>
 
-            {/* Botão de Aviso de Compra Realizada */}
+            {/* Botão de Aviso de Compra Realizada - Destaque Máximo */}
             <div className="notify-purchase-container">
               {hasNotifiedPurchase ? (
                 <div className="fbb-notified">
-                  ✅ Compra informada! Aguardando o marketplace computar o pedido.
+                  <div className="fbb-notified-badge">
+                    <CheckCircle size={16} /> Compra informada com sucesso!
+                  </div>
+                  <div className="fbb-notified-text">
+                    Avisamos o sistema da sua compra! Assim que o marketplace confirmar o pedido, o cashback aparecerá em <strong>Saldo Aguardando</strong>.
+                  </div>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="fbb-notify-btn"
-                  onClick={() => handleNotifyPurchase(currentPurchaseId)}
-                >
-                  <ShoppingBag size={15} /> Já comprou pelo link? Clique para avisar!
-                </button>
+                <div className="fbb-notify-box">
+                  <div className="fbb-notify-header">
+                    <span className="fbb-nh-icon">🛍️</span>
+                    <div>
+                      <div className="fbb-nh-title">Já finalizou sua compra pelo link?</div>
+                      <div className="fbb-nh-sub">Clique abaixo para avisar e ativar seu saldo:</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="fbb-notify-btn prominent"
+                    onClick={() => handleNotifyPurchase(currentPurchaseId)}
+                  >
+                    <ShoppingBag size={18} /> Já comprou pelo link? Clique para avisar!
+                  </button>
+                </div>
               )}
             </div>
           </>
