@@ -289,8 +289,8 @@ function generateAffiliateLink(url: string, platform: Platform): string {
 }
 
 function detectPlatform(url: string): Platform | null {
-  if (/mercadolivre\.com\.br|mercadolibre\.|ml\.com/i.test(url)) return 'ml'
-  if (/shopee\.com\.br/i.test(url)) return 'shopee'
+  if (/mercadolivre\.com\.br|mercadolibre\.|meli\.la|mercadolivre\.com\/sec|ml\.com/i.test(url)) return 'ml'
+  if (/shopee\.com\.br|shp\.ee/i.test(url)) return 'shopee'
   return null
 }
 
