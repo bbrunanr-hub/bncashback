@@ -4,9 +4,14 @@ import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
   Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
   Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
-  Share2, Download, Trash2, Edit3, Gift, Clock, ShieldCheck
+  Share2, Download, Trash2, Edit3, Gift, Clock, ShieldCheck, RefreshCw
 } from 'lucide-react'
 import './index.css'
+import {
+  cloudSaveUser, cloudGetUsers, cloudDeleteUser,
+  cloudSavePurchase, cloudGetPurchases,
+  cloudSaveWithdrawal, cloudGetWithdrawals
+} from './supabase'
 
 type Platform = 'ml' | 'shopee'
 type Tab = 'home' | 'purchases' | 'balance' | 'settings' | 'admin'
@@ -479,20 +484,39 @@ function HomePage({
   const [currentPurchaseId, setCurrentPurchaseId] = useState('')
   const [hasNotifiedPurchase, setHasNotifiedPurchase] = useState(false)
 
-  // Load stats from localStorage filtrados pelo usuário logado
+  // Load stats from localStorage e nuvem Supabase filtrados pelo usuário logado
   useEffect(() => {
-    const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    const userPurchases = purchases.filter(p => {
-      if (!currentUser) return false
-      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
-      if (currentClean && p.userWhatsapp) {
-        return cleanPhoneDigits(p.userWhatsapp) === currentClean
-      }
-      return Boolean(currentUser.name && p.userName === currentUser.name)
-    })
-    const pending = userPurchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
-    setTotalPending(pending)
-    setTotalFound(0) // Reseta na abertura: valor encontrado exibe o cashback do link gerado no momento
+    let isMounted = true
+    const loadPurchases = async () => {
+      let purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+      try {
+        const cloudP = await cloudGetPurchases()
+        if (cloudP && cloudP.length > 0 && isMounted) {
+          purchases = cloudP
+          localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
+        }
+      } catch {}
+
+      if (!isMounted) return
+      const userPurchases = purchases.filter(p => {
+        if (!currentUser) return false
+        const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+        if (currentClean && p.userWhatsapp) {
+          return cleanPhoneDigits(p.userWhatsapp) === currentClean
+        }
+        return Boolean(currentUser.name && p.userName === currentUser.name)
+      })
+      const pending = userPurchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
+      setTotalPending(pending)
+      setTotalFound(0)
+    }
+
+    loadPurchases()
+    const timer = setInterval(loadPurchases, 8000)
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
   }, [currentUser])
 
   const handlePaste = async () => {
@@ -628,6 +652,12 @@ function HomePage({
             }
             purchases.unshift(newPurchase)
             localStorage.setItem('bn_purchases', JSON.stringify(purchases))
+            cloudSavePurchase(newPurchase).catch(() => {})
+            fetch('/api/purchases', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ purchase: newPurchase })
+            }).catch(() => {})
             setCurrentPurchaseId(newId)
             setHasNotifiedPurchase(false)
 
@@ -687,6 +717,12 @@ function HomePage({
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
+    cloudSavePurchase(newPurchase).catch(() => {})
+    fetch('/api/purchases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purchase: newPurchase })
+    }).catch(() => {})
     setCurrentPurchaseId(newId)
     setHasNotifiedPurchase(false)
 
@@ -696,14 +732,24 @@ function HomePage({
   const handleNotifyPurchase = (id: string) => {
     if (!id) return
     const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    let targetPurchase: Purchase | null = null
     const updated = purchases.map(p => {
       if (p.id === id) {
-        return { ...p, status: 'purchase_notified' as const }
+        targetPurchase = { ...p, status: 'purchase_notified' as const }
+        return targetPurchase
       }
       return p
     })
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
     setHasNotifiedPurchase(true)
+    if (targetPurchase) {
+      cloudSavePurchase(targetPurchase).catch(() => {})
+      fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase: targetPurchase })
+      }).catch(() => {})
+    }
     toast.success('Compra informada! Assim que o marketplace computar a venda, o saldo entrará em Saldo Aguardando. 🛍️')
   }
 
@@ -1032,28 +1078,57 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
   const [purchases, setPurchases] = useState<Purchase[]>([])
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    const userPurchases = data.filter(p => {
-      if (!currentUser) return false
-      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
-      if (currentClean && p.userWhatsapp) {
-        return cleanPhoneDigits(p.userWhatsapp) === currentClean
-      }
-      return Boolean(currentUser.name && p.userName === currentUser.name)
-    })
-    setPurchases(userPurchases)
+    let isMounted = true
+    const loadPurchases = async () => {
+      let data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+      try {
+        const cloudP = await cloudGetPurchases()
+        if (cloudP && cloudP.length > 0 && isMounted) {
+          data = cloudP
+          localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
+        }
+      } catch {}
+
+      if (!isMounted) return
+      const userPurchases = data.filter(p => {
+        if (!currentUser) return false
+        const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+        if (currentClean && p.userWhatsapp) {
+          return cleanPhoneDigits(p.userWhatsapp) === currentClean
+        }
+        return Boolean(currentUser.name && p.userName === currentUser.name)
+      })
+      setPurchases(userPurchases)
+    }
+
+    loadPurchases()
+    const timer = setInterval(loadPurchases, 8000)
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
   }, [currentUser])
 
   const handleNotifyFromPurchases = (id: string) => {
     const all = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+    let targetPurchase: Purchase | null = null
     const updated = all.map(p => {
       if (p.id === id) {
-        return { ...p, status: 'purchase_notified' as const }
+        targetPurchase = { ...p, status: 'purchase_notified' as const }
+        return targetPurchase
       }
       return p
     })
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
     setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'purchase_notified' as const } : p))
+    if (targetPurchase) {
+      cloudSavePurchase(targetPurchase).catch(() => {})
+      fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase: targetPurchase })
+      }).catch(() => {})
+    }
     toast.success('Compra informada! Aguardando o marketplace computar a venda. 🛍️')
   }
 
@@ -1177,26 +1252,53 @@ function BalancePage({
   const [withdrawAmount, setWithdrawAmount] = useState('')
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    const wData = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
-    const userPurchases = data.filter(p => {
-      if (!currentUser) return false
-      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
-      if (currentClean && p.userWhatsapp) {
-        return cleanPhoneDigits(p.userWhatsapp) === currentClean
-      }
-      return Boolean(currentUser.name && p.userName === currentUser.name)
-    })
-    const userWithdrawals = wData.filter(w => {
-      if (!currentUser) return false
-      const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
-      if (currentClean && w.userWhatsapp) {
-        return cleanPhoneDigits(w.userWhatsapp) === currentClean
-      }
-      return Boolean(currentUser.name && w.userName === currentUser.name)
-    })
-    setPurchases(userPurchases)
-    setWithdrawals(userWithdrawals)
+    let isMounted = true
+    const loadBalanceData = async () => {
+      let data = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+      let wData = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
+
+      try {
+        const [cloudP, cloudW] = await Promise.all([
+          cloudGetPurchases(),
+          cloudGetWithdrawals()
+        ])
+        if (cloudP && cloudP.length > 0 && isMounted) {
+          data = cloudP
+          localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
+        }
+        if (cloudW && cloudW.length > 0 && isMounted) {
+          wData = cloudW
+          localStorage.setItem('bn_withdrawals', JSON.stringify(cloudW))
+        }
+      } catch {}
+
+      if (!isMounted) return
+      const userPurchases = data.filter(p => {
+        if (!currentUser) return false
+        const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+        if (currentClean && p.userWhatsapp) {
+          return cleanPhoneDigits(p.userWhatsapp) === currentClean
+        }
+        return Boolean(currentUser.name && p.userName === currentUser.name)
+      })
+      const userWithdrawals = wData.filter(w => {
+        if (!currentUser) return false
+        const currentClean = currentUser.cleanWhatsapp || cleanPhoneDigits(currentUser.whatsapp || '')
+        if (currentClean && w.userWhatsapp) {
+          return cleanPhoneDigits(w.userWhatsapp) === currentClean
+        }
+        return Boolean(currentUser.name && w.userName === currentUser.name)
+      })
+      setPurchases(userPurchases)
+      setWithdrawals(userWithdrawals)
+    }
+
+    loadBalanceData()
+    const timer = setInterval(loadBalanceData, 8000)
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
   }, [currentUser])
 
   useEffect(() => {
@@ -1242,6 +1344,7 @@ function BalancePage({
     const allWithdrawals = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
     allWithdrawals.unshift(newRequest)
     localStorage.setItem('bn_withdrawals', JSON.stringify(allWithdrawals))
+    cloudSaveWithdrawal(newRequest).catch(() => {})
     setWithdrawals(prev => [newRequest, ...prev])
     setIsWithdrawModalOpen(false)
     setPixKey('')
@@ -1616,6 +1719,7 @@ function AdminPage({
   const [allUsers, setAllUsers] = useState<UserProfile[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [adminTab, setAdminTab] = useState<'withdrawals' | 'commissions' | 'users' | 'integrations' | 'automation'>('withdrawals')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Credenciais e Teste da API Mercado Livre
   const [mlClientId, setMlClientId] = useState(() => localStorage.getItem('bn_ml_client_id') || '6686394200490654')
@@ -1626,33 +1730,49 @@ function AdminPage({
     message: 'Credenciais oficiais do Mercado Livre ativas e conectadas! 🚀'
   })
 
+  const loadCloudData = async (showToast = false) => {
+    setIsRefreshing(true)
+    try {
+      const [cloudUsers, cloudPurchases, cloudWithdrawals] = await Promise.all([
+        cloudGetUsers(),
+        cloudGetPurchases(),
+        cloudGetWithdrawals()
+      ])
+
+      if (cloudUsers && cloudUsers.length > 0) {
+        setAllUsers(cloudUsers)
+        localStorage.setItem('bn_all_users', JSON.stringify(cloudUsers))
+      }
+      if (cloudPurchases && cloudPurchases.length > 0) {
+        setPurchases(cloudPurchases)
+        localStorage.setItem('bn_purchases', JSON.stringify(cloudPurchases))
+      }
+      if (cloudWithdrawals && cloudWithdrawals.length > 0) {
+        setWithdrawals(cloudWithdrawals)
+        localStorage.setItem('bn_withdrawals', JSON.stringify(cloudWithdrawals))
+      }
+      if (showToast) {
+        toast.success('Dados sincronizados com a nuvem! 🔄')
+      }
+    } catch {
+      if (showToast) toast.error('Erro ao sincronizar com a nuvem.')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   useEffect(() => {
     const isAuth = sessionStorage.getItem('bn_admin_auth') === 'true'
     if (isAuth) setIsAuthenticated(true)
-    const p = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
-    const w = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
-    const localUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
-    setPurchases(p)
-    setWithdrawals(w)
-    setAllUsers(localUsers)
 
-    // Sincroniza usuários remotos salvos na API
-    fetch('/api/users')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data && data.success && Array.isArray(data.users)) {
-          const remoteUsers = data.users as UserProfile[]
-          const merged = [...localUsers]
-          remoteUsers.forEach(ru => {
-            const clean = cleanPhoneDigits(ru.cleanWhatsapp || ru.whatsapp || '')
-            const exists = merged.some(lu => cleanPhoneDigits(lu.cleanWhatsapp || lu.whatsapp || '') === clean)
-            if (!exists) merged.unshift(ru)
-          })
-          setAllUsers(merged)
-          localStorage.setItem('bn_all_users', JSON.stringify(merged))
-        }
-      })
-      .catch(() => {})
+    setPurchases(JSON.parse(localStorage.getItem('bn_purchases') || '[]'))
+    setWithdrawals(JSON.parse(localStorage.getItem('bn_withdrawals') || '[]'))
+    setAllUsers(JSON.parse(localStorage.getItem('bn_all_users') || '[]'))
+
+    loadCloudData(false)
+    const timer = setInterval(() => {
+      loadCloudData(false)
+    }, 8000)
 
     const savedId = localStorage.getItem('bn_ml_client_id') || '6686394200490654'
     const savedSecret = localStorage.getItem('bn_ml_client_secret') || 'Jjf0SlC5UD79ACry5O9xjXIiloQstOFK'
@@ -1660,6 +1780,8 @@ function AdminPage({
     setMlClientSecret(savedSecret)
     localStorage.setItem('bn_ml_client_id', savedId)
     localStorage.setItem('bn_ml_client_secret', savedSecret)
+
+    return () => clearInterval(timer)
   }, [])
 
   const handleTestMlConnection = async () => {
@@ -1716,23 +1838,29 @@ function AdminPage({
   const totalPendingAmount = pendingList.reduce((acc, w) => acc + w.amount, 0)
 
   const handleMarkAsPaid = (id: string) => {
+    let targetWithdrawal: WithdrawalRequest | null = null
     const updated = withdrawals.map(w => {
       if (w.id === id) {
-        return {
+        targetWithdrawal = {
           ...w,
           status: 'paid' as const,
           paidAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         }
+        return targetWithdrawal
       }
       return w
     })
     setWithdrawals(updated)
     localStorage.setItem('bn_withdrawals', JSON.stringify(updated))
+    if (targetWithdrawal) {
+      cloudSaveWithdrawal(targetWithdrawal).catch(() => {})
+    }
     toast.success('Saque marcado como PAGO via PIX! ✅')
   }
 
   const handleComputeSale = (purchaseId: string) => {
     let bonusToInsert: Purchase | null = null
+    let targetPurchase: Purchase | null = null
     const target = purchases.find(p => p.id === purchaseId)
 
     // Se a venda possuir indicador primário com bônus, gera o registro de bônus no saldo aguardando dele
@@ -1765,13 +1893,18 @@ function AdminPage({
 
     const updated = purchases.map(p => {
       if (p.id === purchaseId) {
-        return { ...p, status: 'pending' as const }
+        targetPurchase = { ...p, status: 'pending' as const }
+        return targetPurchase
       }
       return p
     })
 
     if (bonusToInsert) {
       updated.unshift(bonusToInsert)
+      cloudSavePurchase(bonusToInsert).catch(() => {})
+    }
+    if (targetPurchase) {
+      cloudSavePurchase(targetPurchase).catch(() => {})
     }
 
     setPurchases(updated)
@@ -1786,7 +1919,9 @@ function AdminPage({
   const handleApproveCommission = (purchaseId: string) => {
     const updated = purchases.map(p => {
       if (p.id === purchaseId || p.id === `bonus-${purchaseId}`) {
-        return { ...p, status: 'approved' as const }
+        const approvedItem = { ...p, status: 'approved' as const }
+        cloudSavePurchase(approvedItem).catch(() => {})
+        return approvedItem
       }
       return p
     })
@@ -1832,6 +1967,7 @@ function AdminPage({
       const updated = allUsers.filter(u => u.id !== id)
       setAllUsers(updated)
       localStorage.setItem('bn_all_users', JSON.stringify(updated))
+      cloudDeleteUser(id).catch(() => {})
       toast.success('Usuário removido da lista!')
     }
   }
@@ -1881,11 +2017,35 @@ function AdminPage({
     <div className="page">
       {/* Top Header Admin */}
       <div className="admin-topbar">
-        <button className="admin-back-btn" onClick={onBack}>
-          <ArrowLeft size={16} /> Voltar ao App
-        </button>
-        <div className="admin-badge-live">
-          <Shield size={14} /> Modo Admin Ativo
+        {adminTab !== 'withdrawals' ? (
+          <button className="admin-back-btn" onClick={() => setAdminTab('withdrawals')}>
+            <ArrowLeft size={16} /> Voltar ao Início do Admin
+          </button>
+        ) : (
+          <button
+            className="admin-back-btn"
+            onClick={() => {
+              if (window.confirm('Deseja fechar o Painel da Administradora e voltar ao site?')) {
+                onBack()
+              }
+            }}
+          >
+            <ArrowLeft size={16} /> Sair do Painel Admin
+          </button>
+        )}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            className="admin-refresh-btn"
+            onClick={() => loadCloudData(true)}
+            disabled={isRefreshing}
+            title="Sincronizar dados com a nuvem"
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'spin' : ''} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+          </button>
+          <div className="admin-badge-live">
+            <Shield size={14} /> Modo Admin Ativo
+          </div>
         </div>
       </div>
 
@@ -2809,31 +2969,41 @@ export default function App() {
     } catch {}
   }, [])
 
-  // 2. Sincroniza usuários remotos salvos na API
+  // 2. Sincroniza usuários e compras remotos salvos no Supabase e API
   useEffect(() => {
-    fetch('/api/users')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.users && Array.isArray(data.users)) {
-          const local = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
-          const map = new Map<string, UserProfile>()
-          for (const u of local) {
-            const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
-            if (key) map.set(key, u)
-          }
-          for (const u of data.users) {
-            const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
-            if (key) {
-              const existing = map.get(key)
-              map.set(key, { ...existing, ...u })
-            }
-          }
-          const merged = Array.from(map.values())
-          localStorage.setItem('bn_all_users', JSON.stringify(merged))
+    cloudGetUsers().then(remoteUsers => {
+      if (remoteUsers && remoteUsers.length > 0) {
+        const local = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+        const map = new Map<string, UserProfile>()
+        for (const u of local) {
+          const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
+          if (key) map.set(key, u)
         }
-      })
-      .catch(() => {})
+        for (const u of remoteUsers) {
+          const key = cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '')
+          if (key) {
+            const existing = map.get(key)
+            map.set(key, { ...existing, ...u })
+          }
+        }
+        const merged = Array.from(map.values())
+        localStorage.setItem('bn_all_users', JSON.stringify(merged))
+      }
+    }).catch(() => {})
+
+    cloudGetPurchases().then(cloudP => {
+      if (cloudP && cloudP.length > 0) {
+        localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
+      }
+    }).catch(() => {})
   }, [])
+
+  // Sincroniza o usuário atual na nuvem assim que detectado
+  useEffect(() => {
+    if (currentUser) {
+      cloudSaveUser(currentUser).catch(() => {})
+    }
+  }, [currentUser])
 
   // 3. Atualiza automaticamente status VIP de 10 amigos quando o usuário atingir a meta
   useEffect(() => {
@@ -2924,7 +3094,8 @@ export default function App() {
     }
     localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
 
-    // Sincroniza em background com a API /api/users
+    // Sincroniza em background com Supabase e API /api/users
+    cloudSaveUser(user).catch(() => {})
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
