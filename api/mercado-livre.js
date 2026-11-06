@@ -50,9 +50,19 @@ function extractMlbId(rawUrl) {
   const pdpMatch = rawUrl.match(/item_id:(MLB\d+)/i);
   if (pdpMatch) return pdpMatch[1].toUpperCase();
 
-  // 2. /p/MLB12345 ou /up/MLBU12345 ou /MLB-12345
-  const match = rawUrl.match(/MLB[U]?-?(\d+)/i);
-  return match ? `MLB${match[1]}` : null;
+  // 2. wid=MLB12345678
+  const widMatch = rawUrl.match(/wid=(MLB\d+)/i);
+  if (widMatch) return widMatch[1].toUpperCase();
+
+  // 3. /p/MLB12345 (catálogo)
+  const pMatch = rawUrl.match(/\/p\/(MLB\d+)/i);
+  if (pMatch) return pMatch[1].toUpperCase();
+
+  // 4. /MLB-12345678
+  const directMatch = rawUrl.match(/\/MLB-?(\d+)/i);
+  if (directMatch) return `MLB${directMatch[1]}`;
+
+  return null;
 }
 
 function extractSlugTitle(rawUrl) {
@@ -280,6 +290,20 @@ export default async function handler(req, res) {
             for (const matchedProd of topProducts) {
               if (productPrice) break;
               try {
+                // Verificação de similaridade de palavras para evitar pegar produto errado do catálogo (ex: conjunto Neymar para kit 4 camisetas)
+                const matchedWords = (matchedProd.name || '').toLowerCase().replace(/[^a-z0-9áéíóúãõâêôç]/gi, ' ').split(/\s+/).filter(w => w.length > 2);
+                const slugWords = cleanWords.map(w => w.toLowerCase());
+                const setA = new Set(slugWords);
+                const setB = new Set(matchedWords);
+                const intersection = [...setA].filter(x => setB.has(x)).length;
+                const union = new Set([...slugWords, ...matchedWords]).size;
+                const jaccard = union > 0 ? (intersection / union) : 0;
+
+                // Só aceita o produto de catálogo se tiver pelo menos 50% de similaridade real no título
+                if (jaccard < 0.50) {
+                  continue;
+                }
+
                 const itemsRes = await fetch(`https://api.mercadolibre.com/products/${matchedProd.id}/items`, {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });

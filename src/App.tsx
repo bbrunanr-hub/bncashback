@@ -298,17 +298,33 @@ function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace('.', ',')}`
 }
 
+function parsePrice(str: string): number {
+  if (!str) return 0
+  let clean = str.replace(/[^\d.,]/g, '').trim()
+  if (clean.includes(',') && clean.includes('.')) {
+    if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
+      clean = clean.replace(/\./g, '').replace(',', '.')
+    } else {
+      clean = clean.replace(/,/g, '')
+    }
+  } else if (clean.includes(',')) {
+    clean = clean.replace(',', '.')
+  }
+  const val = parseFloat(clean)
+  return isNaN(val) ? 0 : val
+}
+
 // ---- Logo SVG ----
 function LogoIcon() {
   return (
     <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="22" cy="22" r="22" fill="url(#grad1)"/>
-      <path d="M12 28L20 14L26 22L30 17L34 28" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M30 14L34 14L34 18" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="22" cy="22" r="22" fill="url(#grad1)" />
+      <path d="M12 28L20 14L26 22L30 17L34 28" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M30 14L34 14L34 18" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <defs>
         <linearGradient id="grad1" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F59E0B"/>
-          <stop offset="1" stopColor="#F97316"/>
+          <stop stopColor="#F59E0B" />
+          <stop offset="1" stopColor="#F97316" />
         </linearGradient>
       </defs>
     </svg>
@@ -319,10 +335,10 @@ function LogoIcon() {
 function MLIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="11" fill="#FFE600"/>
-      <path d="M7 14C7 14 8 10 12 10C16 10 17 14 17 14" stroke="#3483FA" strokeWidth="2.5" strokeLinecap="round"/>
-      <circle cx="8" cy="14" r="1.5" fill="#3483FA"/>
-      <circle cx="16" cy="14" r="1.5" fill="#3483FA"/>
+      <circle cx="12" cy="12" r="11" fill="#FFE600" />
+      <path d="M7 14C7 14 8 10 12 10C16 10 17 14 17 14" stroke="#3483FA" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="8" cy="14" r="1.5" fill="#3483FA" />
+      <circle cx="16" cy="14" r="1.5" fill="#3483FA" />
     </svg>
   )
 }
@@ -331,10 +347,10 @@ function MLIcon() {
 function ShopeeIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="11" fill="#EE4D2D"/>
-      <path d="M8 10V9C8 6.79 9.79 5 12 5C14.21 5 16 6.79 16 9V10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-      <rect x="6" y="10" width="12" height="9" rx="2" fill="white"/>
-      <path d="M10 14C10 14 10.5 16 12 16C13.5 16 14 14 14 14" stroke="#EE4D2D" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="11" fill="#EE4D2D" />
+      <path d="M8 10V9C8 6.79 9.79 5 12 5C14.21 5 16 6.79 16 9V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      <rect x="6" y="10" width="12" height="9" rx="2" fill="white" />
+      <path d="M10 14C10 14 10.5 16 12 16C13.5 16 14 14 14 14" stroke="#EE4D2D" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -384,7 +400,7 @@ function UserRegisterModal({ isOpen, onClose, currentUser, onSave }: UserRegiste
     if (pendingRef && !currentUser?.referredBy) {
       primaryUser = allUsers.find(
         u => u.referralCode?.toUpperCase() === pendingRef.toUpperCase() &&
-             cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
+          cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
       )
     }
 
@@ -488,6 +504,7 @@ function HomePage({
   const [platform, setPlatform] = useState<Platform>('ml')
   const [linkInput, setLinkInput] = useState('')
   const [productTitle, setProductTitle] = useState('')
+  const [productPriceInput, setProductPriceInput] = useState('')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
   const [cashbackAmount, setCashbackAmount] = useState(0)
@@ -510,7 +527,7 @@ function HomePage({
           purchases = cloudP
           localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
         }
-      } catch {}
+      } catch { }
 
       if (!isMounted) return
       const userPurchases = purchases.filter(p => {
@@ -523,7 +540,7 @@ function HomePage({
       })
       const pending = userPurchases.filter(p => p.status === 'pending').reduce((a, p) => a + p.cashback, 0)
       setTotalPending(pending)
-      setTotalFound(0)
+      // Mantém totalFound intacto para não sumir o valor da tela a cada 8 segundos!
     }
 
     loadPurchases()
@@ -541,6 +558,7 @@ function HomePage({
 
       // Reseta valores anteriores ao colar novo link
       setTotalFound(0)
+      setProductPriceInput('')
       setAffiliateLink('')
       setCashbackAmount(0)
       setProcessState('idle')
@@ -565,6 +583,7 @@ function HomePage({
   const handleClear = () => {
     setLinkInput('')
     setProductTitle('')
+    setProductPriceInput('')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
@@ -632,6 +651,7 @@ function HomePage({
             setAffiliateLink(apiData.affiliateLink)
             setCashbackAmount(apiData.cashback)
             setTotalFound(apiData.cashback)
+            setProductPriceInput(price.toFixed(2).replace('.', ','))
             setProductTitle(apiData.title)
             setProcessState('done')
 
@@ -667,12 +687,12 @@ function HomePage({
             }
             purchases.unshift(newPurchase)
             localStorage.setItem('bn_purchases', JSON.stringify(purchases))
-            cloudSavePurchase(newPurchase).catch(() => {})
+            cloudSavePurchase(newPurchase).catch(() => { })
             fetch('/api/purchases', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ purchase: newPurchase })
-            }).catch(() => {})
+            }).catch(() => { })
             setCurrentPurchaseId(newId)
             setHasNotifiedPurchase(false)
 
@@ -702,6 +722,7 @@ function HomePage({
     setAffiliateLink(generated)
     setCashbackAmount(0)
     setTotalFound(0)
+    setProductPriceInput('')
     setProcessState('done')
 
     const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
@@ -732,12 +753,12 @@ function HomePage({
     }
     purchases.unshift(newPurchase)
     localStorage.setItem('bn_purchases', JSON.stringify(purchases))
-    cloudSavePurchase(newPurchase).catch(() => {})
+    cloudSavePurchase(newPurchase).catch(() => { })
     fetch('/api/purchases', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ purchase: newPurchase })
-    }).catch(() => {})
+    }).catch(() => { })
     setCurrentPurchaseId(newId)
     setHasNotifiedPurchase(false)
 
@@ -758,12 +779,12 @@ function HomePage({
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
     setHasNotifiedPurchase(true)
     if (targetPurchase) {
-      cloudSavePurchase(targetPurchase).catch(() => {})
+      cloudSavePurchase(targetPurchase).catch(() => { })
       fetch('/api/purchases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ purchase: targetPurchase })
-      }).catch(() => {})
+      }).catch(() => { })
     }
     toast.success('Compra informada! Assim que o marketplace computar a venda, o saldo entrará em Saldo Aguardando. 🛍️')
   }
@@ -779,12 +800,60 @@ function HomePage({
   const handleReset = () => {
     setLinkInput('')
     setProductTitle('')
+    setProductPriceInput('')
     setProcessState('idle')
     setAffiliateLink('')
     setCashbackAmount(0)
     setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
+  }
+
+  const handlePriceInputChange = (val: string) => {
+    setProductPriceInput(val)
+    const num = parsePrice(val)
+    if (num > 0) {
+      const activeMktRate = platform === 'ml' ? detectedCategory.mlCommission : detectedCategory.shopeeCommission
+      const userPct = activeMktRate * USER_COMMISSION_SHARE
+      const calculatedCashback = (num * userPct) / 100
+      const calculatedTotalCommission = (num * activeMktRate) / 100
+
+      setCashbackAmount(calculatedCashback)
+      setTotalFound(calculatedCashback)
+
+      if (currentPurchaseId) {
+        const purchases = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+        const allUsers = JSON.parse(localStorage.getItem('bn_all_users') || '[]') as UserProfile[]
+        const eligiblePrimary = getEligiblePrimaryUser(currentUser, allUsers)
+        const ownerProfit = eligiblePrimary ? (calculatedTotalCommission * OWNER_VIP_COMMISSION_SHARE) : (calculatedTotalCommission * OWNER_COMMISSION_SHARE)
+        const primaryBonusAmount = eligiblePrimary ? (calculatedTotalCommission * PRIMARY_BONUS_COMMISSION_SHARE) : 0
+
+        const updated = purchases.map(p => {
+          if (p.id === currentPurchaseId) {
+            const up: Purchase = {
+              ...p,
+              price: num,
+              totalCommission: calculatedTotalCommission,
+              ownerProfit,
+              cashback: calculatedCashback,
+              primaryBonusAmount
+            }
+            cloudSavePurchase(up).catch(() => { })
+            fetch('/api/purchases', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ purchase: up })
+            }).catch(() => { })
+            return up
+          }
+          return p
+        })
+        localStorage.setItem('bn_purchases', JSON.stringify(updated))
+      }
+    } else {
+      setCashbackAmount(0)
+      setTotalFound(0)
+    }
   }
 
   // Contagem de amigos cadastrados pelo link deste usuário
@@ -953,8 +1022,8 @@ function HomePage({
       <div className="result-grid">
         <div className="result-card blue">
           <div className="result-card-header">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" strokeWidth="1.5"/><path d="M5 7h4M7 5v4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            {totalFound > 0 ? 'Valor Encontrado' : 'Cashback Estimado'}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" strokeWidth="1.5" /><path d="M5 7h4M7 5v4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+            Cashback Estimado
           </div>
           <div className="result-card-value">
             {totalFound > 0 ? formatCurrency(totalFound) : (processState === 'done' && cashbackRatePct ? `${cashbackRatePct} de volta` : 'R$ 0,00')}
@@ -975,7 +1044,7 @@ function HomePage({
         <div className="bfb-content">
           <div className="bfb-title">Como o Saldo Aguardando funciona?</div>
           <div className="bfb-desc">
-            O valor em <strong>Saldo Aguardando</strong> só é ativado <strong>após você realizar sua compra</strong> com o link com cashback. 
+            O valor em <strong>Saldo Aguardando</strong> só é ativado <strong>após você realizar sua compra</strong> com o link com cashback.
             Assim que o Mercado Livre ou a Shopee computar e confirmar a sua compra, seu saldo aparecerá aqui automaticamente!
           </div>
         </div>
@@ -1003,6 +1072,40 @@ function HomePage({
               </div>
               <div className="user-cashback-badge">
                 💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> {cashbackAmount > 0 ? `(${formatCurrency(cashbackAmount)})` : ''}
+              </div>
+
+              {/* Simulador rápido e direto de valor em Reais */}
+              <div className="cashback-inline-sim">
+                <div className="cis-header">
+                  <span className="cis-title">💵 Quer ver seu cashback exato em Reais?</span>
+                  <span className="cis-sub">Preço do produto:</span>
+                </div>
+                <div className="cis-input-row">
+                  <span className="cis-prefix">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="cis-input"
+                    placeholder="Ex: 154,00"
+                    value={productPriceInput}
+                    onChange={e => handlePriceInputChange(e.target.value)}
+                  />
+                  {productPriceInput && (
+                    <button
+                      type="button"
+                      className="cis-clear-btn"
+                      onClick={() => handlePriceInputChange('')}
+                      title="Limpar valor"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {cashbackAmount > 0 && (
+                  <div className="cis-feedback">
+                    🎉 Você vai receber: <strong>{formatCurrency(cashbackAmount)} de volta</strong> ({cashbackRatePct})!
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1102,7 +1205,7 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
           data = cloudP
           localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
         }
-      } catch {}
+      } catch { }
 
       if (!isMounted) return
       const userPurchases = data.filter(p => {
@@ -1137,12 +1240,12 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
     localStorage.setItem('bn_purchases', JSON.stringify(updated))
     setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'purchase_notified' as const } : p))
     if (targetPurchase) {
-      cloudSavePurchase(targetPurchase).catch(() => {})
+      cloudSavePurchase(targetPurchase).catch(() => { })
       fetch('/api/purchases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ purchase: targetPurchase })
-      }).catch(() => {})
+      }).catch(() => { })
     }
     toast.success('Compra informada! Aguardando o marketplace computar a venda. 🛍️')
   }
@@ -1285,7 +1388,7 @@ function BalancePage({
           wData = cloudW
           localStorage.setItem('bn_withdrawals', JSON.stringify(cloudW))
         }
-      } catch {}
+      } catch { }
 
       if (!isMounted) return
       const userPurchases = data.filter(p => {
@@ -1359,7 +1462,7 @@ function BalancePage({
     const allWithdrawals = JSON.parse(localStorage.getItem('bn_withdrawals') || '[]') as WithdrawalRequest[]
     allWithdrawals.unshift(newRequest)
     localStorage.setItem('bn_withdrawals', JSON.stringify(allWithdrawals))
-    cloudSaveWithdrawal(newRequest).catch(() => {})
+    cloudSaveWithdrawal(newRequest).catch(() => { })
     setWithdrawals(prev => [newRequest, ...prev])
     setIsWithdrawModalOpen(false)
     setPixKey('')
@@ -1942,7 +2045,7 @@ function AdminPage({
   const totalGrossCommissions = confirmedPurchases.reduce((acc, p) => acc + (p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)), 0)
   const totalOwnerProfit = confirmedPurchases.reduce((acc, p) => acc + (p.ownerProfit || ((p.totalCommission || (p.cashback / USER_COMMISSION_SHARE)) * OWNER_COMMISSION_SHARE)), 0)
   const totalUserCashback = confirmedPurchases.reduce((acc, p) => acc + p.cashback, 0)
-  
+
   const totalPaid = withdrawals.filter(w => w.status === 'paid').reduce((acc, w) => acc + w.amount, 0)
   const pendingList = withdrawals.filter(w => w.status === 'pending')
   const totalPendingAmount = pendingList.reduce((acc, w) => acc + w.amount, 0)
@@ -1963,7 +2066,7 @@ function AdminPage({
     setWithdrawals(updated)
     localStorage.setItem('bn_withdrawals', JSON.stringify(updated))
     if (targetWithdrawal) {
-      cloudSaveWithdrawal(targetWithdrawal).catch(() => {})
+      cloudSaveWithdrawal(targetWithdrawal).catch(() => { })
     }
     toast.success('Saque marcado como PAGO via PIX! ✅')
   }
@@ -1972,7 +2075,7 @@ function AdminPage({
     const updated = purchases.map(p => {
       if (p.id === purchaseId || p.id === `bonus-${purchaseId}`) {
         const approvedItem = { ...p, status: 'approved' as const }
-        cloudSavePurchase(approvedItem).catch(() => {})
+        cloudSavePurchase(approvedItem).catch(() => { })
         return approvedItem
       }
       return p
@@ -2019,7 +2122,7 @@ function AdminPage({
       const updated = allUsers.filter(u => u.id !== id)
       setAllUsers(updated)
       localStorage.setItem('bn_all_users', JSON.stringify(updated))
-      cloudDeleteUser(id).catch(() => {})
+      cloudDeleteUser(id).catch(() => { })
       toast.success('Usuário removido da lista!')
     }
   }
@@ -2999,7 +3102,7 @@ function LoginScreen({
     if (pendingRef && (!existing || !existing.referredBy)) {
       primaryUser = allUsers.find(
         u => u.referralCode?.toUpperCase() === pendingRef.toUpperCase() &&
-             cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
+          cleanPhoneDigits(u.cleanWhatsapp || u.whatsapp || '') !== cleanPhone
       )
     }
 
@@ -3037,7 +3140,7 @@ function LoginScreen({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user: primaryUser })
-          }).catch(() => {})
+          }).catch(() => { })
         }
       }
     }
@@ -3045,7 +3148,7 @@ function LoginScreen({
     try {
       sessionStorage.removeItem('bn_pending_ref')
       localStorage.removeItem('bn_pending_ref')
-    } catch {}
+    } catch { }
 
     onLogin(user)
   }
@@ -3153,7 +3256,7 @@ export default function App() {
         sessionStorage.setItem('bn_pending_ref', cleanRef)
         localStorage.setItem('bn_pending_ref', cleanRef)
       }
-    } catch {}
+    } catch { }
   }, [])
 
   // 2. Sincroniza usuários e compras remotos salvos no Supabase e API
@@ -3176,19 +3279,19 @@ export default function App() {
         const merged = Array.from(map.values())
         localStorage.setItem('bn_all_users', JSON.stringify(merged))
       }
-    }).catch(() => {})
+    }).catch(() => { })
 
     cloudGetPurchases().then(cloudP => {
       if (cloudP && cloudP.length > 0) {
         localStorage.setItem('bn_purchases', JSON.stringify(cloudP))
       }
-    }).catch(() => {})
+    }).catch(() => { })
   }, [])
 
   // Sincroniza o usuário atual na nuvem assim que detectado
   useEffect(() => {
     if (currentUser) {
-      cloudSaveUser(currentUser).catch(() => {})
+      cloudSaveUser(currentUser).catch(() => { })
     }
   }, [currentUser])
 
@@ -3216,7 +3319,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user: updated })
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }, [currentUser])
 
@@ -3254,7 +3357,7 @@ export default function App() {
           localStorage.setItem('bn_purchases', JSON.stringify(cleaned))
         }
       }
-    } catch {}
+    } catch { }
   }, [])
 
   const handleToggleMaintenance = () => {
@@ -3282,12 +3385,12 @@ export default function App() {
     localStorage.setItem('bn_all_users', JSON.stringify(allUsers))
 
     // Sincroniza em background com Supabase e API /api/users
-    cloudSaveUser(user).catch(() => {})
+    cloudSaveUser(user).catch(() => { })
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user })
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   const handleLogout = () => {
@@ -3423,7 +3526,7 @@ export default function App() {
               onBack={() => {
                 try {
                   window.history.replaceState({}, '', '/')
-                } catch {}
+                } catch { }
                 setActiveTab('home')
               }}
               isMaintenance={isMaintenance}
