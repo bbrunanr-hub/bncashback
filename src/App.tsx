@@ -47,7 +47,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Moda, Beleza & Esportes',
     icon: '👗',
     mlCommission: 16, // Oficial Mercado Livre Venda Direta: 16%
-    shopeeCommission: 14,
+    shopeeCommission: 3, // Shopee: Moda & Acessórios (2% a 4%, média 3% -> 1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   home: {
@@ -55,7 +55,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Casa, Móveis & Decoração',
     icon: '🏠',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 10,
+    shopeeCommission: 4, // Shopee: Casa, Decoração & Saúde (até 4% -> 1,6% usuário / 2,4% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   tools: {
@@ -63,7 +63,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Ferramentas & Construção',
     icon: '🛠️',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 8,
+    shopeeCommission: 3, // Shopee: Ferramentas (média 3% -> 1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   toys_sports: {
@@ -71,7 +71,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Brinquedos, Bebês & Games',
     icon: '🧸',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 9,
+    shopeeCommission: 3, // Shopee: Brinquedos & Bebês (média 3% -> 1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   books: {
@@ -79,7 +79,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Livros & Revistas',
     icon: '📚',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 10,
+    shopeeCommission: 4, // Shopee: Livros & Papelaria (até 4% -> 1,6% usuário / 2,4% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   auto: {
@@ -87,7 +87,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Acessórios para Veículos',
     icon: '🚗',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 8,
+    shopeeCommission: 3, // Shopee: Automotivo (média 3% -> 1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   electronics: {
@@ -95,7 +95,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Tecnologia & Eletrodomésticos',
     icon: '📱',
     mlCommission: 5, // Oficial Mercado Livre Venda Direta: 5%
-    shopeeCommission: 4,
+    shopeeCommission: 2, // Shopee: Eletrônicos, Celulares, Áudio & PC (1% a 2%, média 2% -> 0,8% usuário / 1,2% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   food: {
@@ -103,7 +103,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Alimentos & Bebidas',
     icon: '🥫',
     mlCommission: 0, // Oficial Mercado Livre Venda Direta: 0%
-    shopeeCommission: 2,
+    shopeeCommission: 2, // Shopee: Alimentos & Supermercado (média 2% -> 0,8% usuário / 1,2% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
   general: {
@@ -111,7 +111,7 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
     name: 'Casa, Variedades & Outros',
     icon: '📦',
     mlCommission: 12, // Padrão Oficial Mercado Livre Venda Direta: 12%
-    shopeeCommission: 3, // Padrão Shopee Afiliados: 3% (1,2% usuário / 1,8% administradora)
+    shopeeCommission: 3, // Shopee: Padrão Base Afiliados 3% (1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
   },
 }
@@ -623,7 +623,7 @@ function HomePage({
               name: apiData.categoryName || 'Moda & Outros',
               icon: apiData.categoryIcon || '📦',
               mlCommission: catRate,
-              shopeeCommission: 10,
+              shopeeCommission: 3,
               cashbackShare: USER_COMMISSION_SHARE
             }
 
