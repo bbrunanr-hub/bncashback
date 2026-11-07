@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Toaster, toast } from 'sonner'
 import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
-  Bell, User, Key, HelpCircle, LogOut, Zap, TrendingUp, ExternalLink,
+  Bell, User, Key, HelpCircle, LogOut, Zap, ExternalLink,
   Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
   Share2, Download, Trash2, Edit3, Gift, Clock, ShieldCheck, RefreshCw
 } from 'lucide-react'
@@ -490,7 +490,6 @@ function HomePage({
   const [productTitle, setProductTitle] = useState('')
   const [processState, setProcessState] = useState<ProcessState>('idle')
   const [affiliateLink, setAffiliateLink] = useState('')
-  const [cashbackAmount, setCashbackAmount] = useState(0)
   const [detectedCategory, setDetectedCategory] = useState<CategoryCommission>(CATEGORIES.general)
   const [cashbackRatePct, setCashbackRatePct] = useState('3,5%')
   const [copied, setCopied] = useState(false)
@@ -542,7 +541,6 @@ function HomePage({
       // Reseta valores anteriores ao colar novo link
       setTotalFound(0)
       setAffiliateLink('')
-      setCashbackAmount(0)
       setProcessState('idle')
 
       // Detecta URL no texto compartilhado
@@ -567,7 +565,6 @@ function HomePage({
     setProductTitle('')
     setProcessState('idle')
     setAffiliateLink('')
-    setCashbackAmount(0)
     setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
@@ -630,7 +627,6 @@ function HomePage({
             setDetectedCategory(catObj)
             setCashbackRatePct(apiData.cashbackRatePct)
             setAffiliateLink(apiData.affiliateLink)
-            setCashbackAmount(apiData.cashback)
             setTotalFound(apiData.cashback)
             setProductTitle(apiData.title)
             setProcessState('done')
@@ -700,7 +696,6 @@ function HomePage({
     setDetectedCategory(category)
     setCashbackRatePct(userRatePct)
     setAffiliateLink(generated)
-    setCashbackAmount(0)
     setTotalFound(0)
     setProcessState('done')
 
@@ -781,7 +776,6 @@ function HomePage({
     setProductTitle('')
     setProcessState('idle')
     setAffiliateLink('')
-    setCashbackAmount(0)
     setTotalFound(0)
     setCurrentPurchaseId('')
     setHasNotifiedPurchase(false)
@@ -984,25 +978,19 @@ function HomePage({
       {/* Link com Cashback - Card para Copiar */}
       <div className={`cashback-link-card ${affiliateLink ? 'has-link' : ''}`}>
         <div className="cashback-link-label">
-          <div className="cashback-link-title">
-            <Link2 size={18} color="var(--primary)" />
+          <div className="cashback-link-title prominent-title">
+            <Link2 size={22} color="var(--primary)" />
             <span>Link com cashback</span>
           </div>
-          {affiliateLink && (
-            <span className="cashback-badge-ready">Pronto para copiar! ✨</span>
-          )}
         </div>
 
         {affiliateLink ? (
           <>
-            {/* Category & Final Cashback Info */}
-            <div className="category-info-box">
+            {/* Categoria do Produto */}
+            <div className="category-info-box clean-cat">
               <div className="category-badge">
                 <span className="category-icon">{detectedCategory.icon}</span>
                 <span className="category-name">{detectedCategory.name}</span>
-              </div>
-              <div className="user-cashback-badge">
-                💰 Seu Cashback: <strong>{cashbackRatePct} de volta</strong> {cashbackAmount > 0 ? `(${formatCurrency(cashbackAmount)})` : ''}
               </div>
             </div>
 
@@ -1027,45 +1015,28 @@ function HomePage({
                 href={affiliateLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="open-store-btn"
+                className={`open-store-btn ${platform === 'ml' ? 'store-ml' : 'store-shopee'}`}
               >
-                <ExternalLink size={14} />
-                {platform === 'ml' ? 'Abrir no Mercado Livre' : 'Abrir na Shopee'}
+                <ExternalLink size={16} />
+                {platform === 'ml' ? 'Abrir o novo no Mercado Livre' : 'Abrir o novo na Shopee'}
               </a>
-              <div className="cashback-chip">
-                <TrendingUp size={14} />
-                Cashback: {cashbackAmount > 0 ? `${formatCurrency(cashbackAmount)} (${cashbackRatePct})` : `Até ${cashbackRatePct} de volta`}
-              </div>
             </div>
 
-            {/* Botão de Aviso de Compra Realizada - Destaque Máximo */}
+            {/* Botão de Aviso de Compra Realizada */}
             <div className="notify-purchase-container">
               {hasNotifiedPurchase ? (
                 <div className="fbb-notified">
-                  <div className="fbb-notified-badge">
-                    <CheckCircle size={16} /> Compra informada com sucesso!
-                  </div>
-                  <div className="fbb-notified-text">
-                    Avisamos o sistema da sua compra! Assim que o marketplace confirmar o pedido, o cashback aparecerá em <strong>Saldo Aguardando</strong>.
-                  </div>
+                  <CheckCircle size={16} />
+                  <span>Compra informada com sucesso!</span>
                 </div>
               ) : (
-                <div className="fbb-notify-box">
-                  <div className="fbb-notify-header">
-                    <span className="fbb-nh-icon">🛍️</span>
-                    <div>
-                      <div className="fbb-nh-title">Já finalizou sua compra pelo link?</div>
-                      <div className="fbb-nh-sub">Clique abaixo para avisar e ativar seu saldo:</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="fbb-notify-btn prominent"
-                    onClick={() => handleNotifyPurchase(currentPurchaseId)}
-                  >
-                    <ShoppingBag size={18} /> Já comprou pelo link? Clique para avisar!
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="fbb-notify-btn green-btn"
+                  onClick={() => handleNotifyPurchase(currentPurchaseId)}
+                >
+                  <ShoppingBag size={17} /> Ao comprar pelo novo link, clique para avisar
+                </button>
               )}
             </div>
           </>
@@ -1098,6 +1069,28 @@ function HomePage({
           Mas não deixe de gerar <span className="highlight">seu saldo!</span>
         </div>
       </div>
+
+      {/* Botão Flutuante Redondo Verdinho estilo WhatsApp */}
+      {affiliateLink && (
+        <button
+          type="button"
+          className={`floating-whatsapp-notify ${hasNotifiedPurchase ? 'notified' : ''}`}
+          onClick={() => {
+            if (!hasNotifiedPurchase) {
+              handleNotifyPurchase(currentPurchaseId)
+            }
+          }}
+          title={hasNotifiedPurchase ? 'Compra informada!' : 'Ao comprar pelo novo link, clique para avisar'}
+        >
+          <div className="fwn-circle">
+            {hasNotifiedPurchase ? <CheckCircle size={22} color="white" /> : <ShoppingBag size={21} color="white" />}
+            {!hasNotifiedPurchase && <span className="fwn-ping" />}
+          </div>
+          <span className="fwn-text">
+            {hasNotifiedPurchase ? 'Compra informada com sucesso! ✅' : 'Ao comprar pelo novo link, clique para avisar'}
+          </span>
+        </button>
+      )}
     </div>
   )
 }

@@ -510,6 +510,14 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.cashback-link-title.prominent-title span {
+  font-size: 18px;
+  font-weight: 900;
 }
 
 .cashback-badge-ready {
@@ -530,6 +538,17 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.category-info-box.clean-cat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .category-badge {
@@ -620,26 +639,46 @@ body {
 .cashback-result-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 12px;
+  justify-content: stretch;
+  margin-top: 10px;
+  margin-bottom: 8px;
 }
 
 .open-store-btn {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--primary);
-  text-decoration: none;
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  transition: color 0.2s;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.open-store-btn:hover {
-  color: var(--primary-dark);
-  text-decoration: underline;
+.open-store-btn.store-ml {
+  background: #FFE600;
+  color: #2D3277;
+  border: 1.5px solid #E5CE00;
+}
+.open-store-btn.store-ml:hover {
+  background: #F5DC00;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 230, 0, 0.4);
+}
+
+.open-store-btn.store-shopee {
+  background: #EE4D2D;
+  color: #ffffff;
+  border: 1.5px solid #D73211;
+}
+.open-store-btn.store-shopee:hover {
+  background: #E03E1E;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(238, 77, 45, 0.4);
 }
 
 .link-placeholder-box {
@@ -2850,97 +2889,146 @@ body {
   border: 1px solid #E2E8F0;
 }
 
-/* Box de Aviso de Compra Realizada - Destaque Máximo */
-.fbb-notify-box {
-  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-  border: 1.5px solid #FCD34D;
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
-}
-
-.fbb-notify-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fbb-nh-icon {
-  font-size: 20px;
-}
-
-.fbb-nh-title {
-  font-size: 13px;
-  font-weight: 900;
-  color: #92400E;
-}
-
-.fbb-nh-sub {
-  font-size: 11px;
-  font-weight: 600;
-  color: #B45309;
-}
-
-.fbb-notify-btn.prominent {
-  background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+/* Botão de Aviso de Compra Realizada - Enxuto e Verde */
+.fbb-notify-btn.green-btn {
+  background: linear-gradient(135deg, #25D366 0%, #16A34A 100%);
   color: white;
   border: none;
   border-radius: 10px;
   padding: 13px 16px;
   font-family: 'Nunito', sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 900;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
   transition: all 0.2s ease;
   width: 100%;
+  margin-top: 4px;
 }
 
-.fbb-notify-btn.prominent:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.45);
-  background: linear-gradient(135deg, #D97706 0%, #C2410C 100%);
+.fbb-notify-btn.green-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.45);
+  background: linear-gradient(135deg, #22C55E 0%, #15803D 100%);
 }
 
-.fbb-notify-btn.prominent:active {
+.fbb-notify-btn.green-btn:active {
   transform: translateY(0);
 }
 
 .fbb-notified {
   background: #ECFDF5;
   border: 1.5px solid #10B981;
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-  margin-top: 10px;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
-}
-
-.fbb-notified-badge {
-  font-size: 13px;
-  font-weight: 900;
-  color: #065F46;
+  border-radius: 10px;
+  padding: 11px 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  color: #065F46;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
+  margin-top: 4px;
 }
 
-.fbb-notified-text {
-  font-size: 11.5px;
-  color: #047857;
-  font-weight: 600;
-  line-height: 1.4;
+/* Floating WhatsApp-style notify button */
+.floating-whatsapp-notify {
+  position: fixed;
+  bottom: 74px;
+  right: calc(50% - 240px + 14px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #25D366 0%, #15803D 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 6px 14px 6px 6px;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.55);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  animation: floatBounce 3s ease-in-out infinite;
+}
+
+@media (max-width: 490px) {
+  .floating-whatsapp-notify {
+    right: 14px;
+  }
+}
+
+.floating-whatsapp-notify.notified {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 3px 12px rgba(5, 150, 105, 0.35);
+  animation: none;
+}
+
+.fwn-circle {
+  width: 42px;
+  height: 42px;
+  background: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+}
+
+.floating-whatsapp-notify.notified .fwn-circle {
+  background: #059669;
+}
+
+.fwn-ping {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #25D366;
+  opacity: 0.6;
+  animation: pingRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  z-index: -1;
+}
+
+@keyframes pingRing {
+  75%, 100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes floatBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.fwn-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: white;
+  max-width: 175px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.floating-whatsapp-notify:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.7);
+}
+
+.floating-whatsapp-notify:active {
+  transform: translateY(0) scale(0.98);
 }
 
 
