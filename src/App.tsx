@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import { Toaster, toast } from 'sonner'
 import {
   Home, ShoppingBag, Wallet, Settings, Link2, CheckCircle, Copy, ChevronRight,
-  Bell, User, Key, HelpCircle, LogOut, Zap, ExternalLink,
+  Bell, User, Key, HelpCircle, LogOut, Zap, ExternalLink, XCircle,
   Shield, ArrowLeft, DollarSign, Lock, Send, Users, Phone, MessageCircle,
   Share2, Download, Trash2, Edit3, Gift, Clock, ShieldCheck, RefreshCw
 } from 'lucide-react'
 import './index.css'
 import {
   cloudSaveUser, cloudGetUsers, cloudDeleteUser,
-  cloudSavePurchase, cloudGetPurchases,
+  cloudSavePurchase, cloudGetPurchases, cloudDeletePurchase,
   cloudSaveWithdrawal, cloudGetWithdrawals
 } from './supabase'
 
@@ -182,7 +182,7 @@ export interface UserProfile {
   vipExpiresAt?: string    // Data de expiração dos 6 meses de bônus VIP
 }
 
-export type PurchaseStatus = 'link_created' | 'purchase_notified' | 'pending' | 'approved'
+export type PurchaseStatus = 'link_created' | 'purchase_notified' | 'pending' | 'approved' | 'not_found'
 
 export interface Purchase {
   id: string
@@ -201,6 +201,7 @@ export interface Purchase {
   date: string
   userName?: string
   userWhatsapp?: string
+  adminNote?: string        // Observação ou aviso (ex: compra não encontrada)
   // Rastreamento de Indicação / Primário:
   primaryUserName?: string      // Nome do indicador primário
   primaryUserWhatsapp?: string  // WhatsApp do indicador primário
@@ -1154,6 +1155,18 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
     toast.success('Compra informada! Aguardando o marketplace computar a venda. 🛍️')
   }
 
+  const handleDeletePurchase = (id: string) => {
+    if (confirm('Deseja apagar este item do seu histórico de compras?')) {
+      const all = JSON.parse(localStorage.getItem('bn_purchases') || '[]') as Purchase[]
+      const updated = all.filter(p => p.id !== id)
+      localStorage.setItem('bn_purchases', JSON.stringify(updated))
+      setPurchases(prev => prev.filter(p => p.id !== id))
+      cloudDeletePurchase(id).catch(() => { })
+      fetch(`/api/purchases?id=${id}`, { method: 'DELETE' }).catch(() => { })
+      toast.success('Item apagado do seu histórico!')
+    }
+  }
+
   const getStatusBadge = (status: PurchaseStatus) => {
     switch (status) {
       case 'approved':
@@ -1162,6 +1175,8 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
         return { text: 'Computado (Aguardando 60d) ⏳', className: 'status-pending' }
       case 'purchase_notified':
         return { text: 'Em Análise 🔍', className: 'status-notified' }
+      case 'not_found':
+        return { text: 'Não Localizada ❌', className: 'status-not-found' }
       case 'link_created':
       default:
         return { text: 'Aguardando Compra 🛒', className: 'status-created' }
@@ -1234,15 +1249,32 @@ function PurchasesPage({ currentUser }: { currentUser: UserProfile | null }) {
             <div className="purchase-info">
               <div className="purchase-name">{p.categoryIcon ? `${p.categoryIcon} ` : ''}{p.productName}</div>
               <div className="purchase-date">{p.date}{p.cashbackRatePct ? ` • ${p.cashbackRatePct} cashback` : ''}</div>
-              {p.status === 'link_created' && (
-                <button
-                  type="button"
-                  className="purchase-item-notify-btn"
-                  onClick={() => handleNotifyFromPurchases(p.id)}
-                >
-                  <ShoppingBag size={11} /> Já realizei esta compra
-                </button>
+              {p.status === 'not_found' && (
+                <div className="purchase-not-found-msg">
+                  ⚠️ Compra não identificada nos relatórios do marketplace. Se a compra não foi concluída com o link ou foi cancelada, você pode apagar este item.
+                </div>
               )}
+              <div className="purchase-item-actions">
+                {p.status === 'link_created' && (
+                  <button
+                    type="button"
+                    className="purchase-item-notify-btn"
+                    onClick={() => handleNotifyFromPurchases(p.id)}
+                  >
+                    <ShoppingBag size={11} /> Já realizei esta compra
+                  </button>
+                )}
+                {p.status !== 'approved' && p.status !== 'pending' && (
+                  <button
+                    type="button"
+                    className="purchase-item-delete-btn"
+                    onClick={() => handleDeletePurchase(p.id)}
+                    title="Apagar do histórico"
+                  >
+                    <Trash2 size={11} /> Apagar
+                  </button>
+                )}
+              </div>
             </div>
             <div className="purchase-cashback">
               <div className="cashback-amount">+{formatCurrency(p.cashback)}</div>
@@ -1989,6 +2021,44 @@ function AdminPage({
     toast.success('Saldo do usuário e bônus aprovados para saque PIX! 🎉')
   }
 
+  const handleMarkNotFound = (id: string) => {
+    if (confirm('Deseja marcar esta compra como NÃO ENCONTRADA no marketplace?\n\nO usuário verá o aviso em Minhas Compras informando que a compra não foi localizada nos relatórios.')) {
+      const updated = purchases.map(p => {
+        if (p.id === id) {
+          const item: Purchase = {
+            ...p,
+            status: 'not_found' as const,
+            adminNote: 'Compra não identificada nos relatórios de afiliados do marketplace.'
+          }
+          cloudSavePurchase(item).catch(() => { })
+          fetch('/api/purchases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ purchase: item })
+          }).catch(() => { })
+          return item
+        }
+        return p
+      })
+      setPurchases(updated)
+      localStorage.setItem('bn_purchases', JSON.stringify(updated))
+      toast.info('Compra marcada como NÃO LOCALIZADA! ❌')
+    }
+  }
+
+  const handleDeletePurchaseAdmin = (id: string) => {
+    if (confirm('Deseja excluir este registro definitivamente do painel?')) {
+      const updated = purchases.filter(p => p.id !== id && p.id !== `bonus-${id}`)
+      setPurchases(updated)
+      localStorage.setItem('bn_purchases', JSON.stringify(updated))
+      cloudDeletePurchase(id).catch(() => { })
+      cloudDeletePurchase(`bonus-${id}`).catch(() => { })
+      fetch(`/api/purchases?id=${id}`, { method: 'DELETE' }).catch(() => { })
+      fetch(`/api/purchases?id=bonus-${id}`, { method: 'DELETE' }).catch(() => { })
+      toast.success('Registro excluído com sucesso! 🗑️')
+    }
+  }
+
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
     toast.success(`${label} copiado!`)
@@ -2342,18 +2412,36 @@ function AdminPage({
                           <span className="as-status pending">
                             ⏳ Em Saldo Aguardando do Primário
                           </span>
-                          <button
-                            className="as-approve-btn"
-                            onClick={() => handleApproveCommission(p.id)}
-                          >
-                            🎉 Liberar Bônus para Saque PIX
-                          </button>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              className="as-delete-btn"
+                              onClick={() => handleDeletePurchaseAdmin(p.id)}
+                              title="Excluir bônus"
+                            >
+                              <Trash2 size={13} /> Excluir
+                            </button>
+                            <button
+                              className="as-approve-btn"
+                              onClick={() => handleApproveCommission(p.id)}
+                            >
+                              🎉 Liberar Bônus para Saque PIX
+                            </button>
+                          </div>
                         </>
                       )}
                       {p.status === 'approved' && (
-                        <span className="as-status approved">
-                          Status: Bônus Liberado para Saque PIX ✅
-                        </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <span className="as-status approved">
+                            Status: Bônus Liberado para Saque PIX ✅
+                          </span>
+                          <button
+                            className="as-delete-btn"
+                            onClick={() => handleDeletePurchaseAdmin(p.id)}
+                            title="Excluir bônus"
+                          >
+                            <Trash2 size={13} /> Excluir
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2416,12 +2504,21 @@ function AdminPage({
                         <span className="as-status created">
                           🛒 Apenas Link Gerado (Aguardando Compra)
                         </span>
-                        <button
-                          className="as-compute-btn"
-                          onClick={() => openComputeModal(p)}
-                        >
-                          <CheckCircle size={14} /> Computar Venda
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="as-delete-btn"
+                            onClick={() => handleDeletePurchaseAdmin(p.id)}
+                            title="Excluir link do histórico"
+                          >
+                            <Trash2 size={13} /> Excluir
+                          </button>
+                          <button
+                            className="as-compute-btn"
+                            onClick={() => openComputeModal(p)}
+                          >
+                            <CheckCircle size={14} /> Computar Venda
+                          </button>
+                        </div>
                       </>
                     )}
 
@@ -2430,12 +2527,45 @@ function AdminPage({
                         <span className="as-status notified">
                           🔔 Usuário Informou Compra! (Conferir no painel)
                         </span>
-                        <button
-                          className="as-compute-btn primary"
-                          onClick={() => openComputeModal(p)}
-                        >
-                          <CheckCircle size={14} /> Confirmar & Computar Venda
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            className="as-reject-btn"
+                            onClick={() => handleMarkNotFound(p.id)}
+                            title="Informar que a compra não foi encontrada no relatório do marketplace"
+                          >
+                            <XCircle size={14} /> Não Encontrada
+                          </button>
+                          <button
+                            className="as-compute-btn primary"
+                            onClick={() => openComputeModal(p)}
+                          >
+                            <CheckCircle size={14} /> Confirmar & Computar Venda
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {p.status === 'not_found' && (
+                      <>
+                        <span className="as-status not-found" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA' }}>
+                          ❌ Não Encontrada no Marketplace
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="as-delete-btn"
+                            onClick={() => handleDeletePurchaseAdmin(p.id)}
+                            title="Excluir registro definitivamente"
+                          >
+                            <Trash2 size={13} /> Excluir
+                          </button>
+                          <button
+                            className="as-compute-btn"
+                            onClick={() => openComputeModal(p)}
+                            title="Reavaliar e computar caso a compra apareça nos relatórios"
+                          >
+                            <RefreshCw size={13} /> Reavaliar & Computar
+                          </button>
+                        </div>
                       </>
                     )}
 
@@ -2445,6 +2575,13 @@ function AdminPage({
                           ⏳ Venda Computada (Saldo Aguardando 60 dias)
                         </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="as-delete-btn"
+                            onClick={() => handleDeletePurchaseAdmin(p.id)}
+                            title="Excluir venda"
+                          >
+                            <Trash2 size={13} /> Excluir
+                          </button>
                           <button
                             className="as-edit-btn"
                             onClick={() => openComputeModal(p)}
@@ -2467,13 +2604,22 @@ function AdminPage({
                         <span className="as-status approved">
                           Status: Liberado para Saque PIX ✅
                         </span>
-                        <button
-                          className="as-edit-btn"
-                          onClick={() => openComputeModal(p)}
-                          title="Ajustar valor"
-                        >
-                          <Edit3 size={13} /> Editar
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="as-delete-btn"
+                            onClick={() => handleDeletePurchaseAdmin(p.id)}
+                            title="Excluir venda"
+                          >
+                            <Trash2 size={13} /> Excluir
+                          </button>
+                          <button
+                            className="as-edit-btn"
+                            onClick={() => openComputeModal(p)}
+                            title="Ajustar valor"
+                          >
+                            <Edit3 size={13} /> Editar
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

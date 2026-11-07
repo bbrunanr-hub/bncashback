@@ -7,7 +7,7 @@ const SUPABASE_KEY =
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -45,7 +45,8 @@ export default async function handler(req, res) {
         primary_user_whatsapp: purchase.primaryUserWhatsapp || null,
         primary_bonus_amount: Number(purchase.primaryBonusAmount) || 0,
         is_referral_bonus: Boolean(purchase.isReferralBonus),
-        referred_buyer_name: purchase.referredBuyerName || null
+        referred_buyer_name: purchase.referredBuyerName || null,
+        admin_note: purchase.adminNote || null
       };
 
       await fetch(`${SUPABASE_URL}/rest/v1/bn_purchases`, {
@@ -103,7 +104,8 @@ export default async function handler(req, res) {
         primaryUserWhatsapp: r.primary_user_whatsapp || undefined,
         primaryBonusAmount: Number(r.primary_bonus_amount) || 0,
         isReferralBonus: Boolean(r.is_referral_bonus),
-        referredBuyerName: r.referred_buyer_name || undefined
+        referredBuyerName: r.referred_buyer_name || undefined,
+        adminNote: r.admin_note || undefined
       }));
 
       return res.status(200).json({
@@ -116,6 +118,25 @@ export default async function handler(req, res) {
         success: false,
         error: err.message || 'Erro ao consultar compras'
       });
+    }
+  }
+
+  // Excluir registro de compra / link do histórico
+  if (req.method === 'DELETE') {
+    try {
+      const id = req.query?.id || (req.body && (typeof req.body === 'string' ? JSON.parse(req.body) : req.body)?.id);
+      if (!id) return res.status(400).json({ error: 'ID da compra é obrigatório' });
+
+      await fetch(`${SUPABASE_URL}/rest/v1/bn_purchases?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      return res.status(200).json({ success: true, message: 'Registro de compra removido com sucesso' });
+    } catch (err) {
+      return res.status(500).json({ error: err.message || 'Erro ao excluir compra' });
     }
   }
 

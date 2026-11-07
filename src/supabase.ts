@@ -66,7 +66,8 @@ export function purchaseToRow(p: Purchase) {
     primary_user_whatsapp: p.primaryUserWhatsapp || null,
     primary_bonus_amount: Number(p.primaryBonusAmount) || 0,
     is_referral_bonus: Boolean(p.isReferralBonus),
-    referred_buyer_name: p.referredBuyerName || null
+    referred_buyer_name: p.referredBuyerName || null,
+    admin_note: p.adminNote || null
   }
 }
 
@@ -92,7 +93,8 @@ export function rowToPurchase(r: any): Purchase {
     primaryUserWhatsapp: r.primary_user_whatsapp || undefined,
     primaryBonusAmount: Number(r.primary_bonus_amount) || 0,
     isReferralBonus: Boolean(r.is_referral_bonus),
-    referredBuyerName: r.referred_buyer_name || undefined
+    referredBuyerName: r.referred_buyer_name || undefined,
+    adminNote: r.admin_note || undefined
   }
 }
 
@@ -178,6 +180,14 @@ export async function cloudGetPurchases(): Promise<Purchase[]> {
   } catch (err) {
     console.warn('Erro ao buscar compras da nuvem:', err)
     return []
+  }
+}
+
+export async function cloudDeletePurchase(purchaseId: string): Promise<void> {
+  try {
+    await supabase.from('bn_purchases').delete().eq('id', purchaseId)
+  } catch (err) {
+    console.warn('Erro ao excluir compra na nuvem:', err)
   }
 }
 

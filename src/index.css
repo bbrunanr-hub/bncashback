@@ -2006,6 +2006,16 @@ body {
 /* Status Badges in Purchases */
 .status-created { background: #F1F5F9; color: #475569; }
 .status-notified { background: #FEF3C7; color: #B45309; }
+.status-not-found { background: #FEE2E2; color: #991B1B; font-weight: 700; }
+
+.purchase-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
 .purchase-item-notify-btn {
   background: #EFF6FF;
   border: 1px solid #BFDBFE;
@@ -2016,12 +2026,43 @@ body {
   padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
-  margin-top: 4px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 .purchase-item-notify-btn:hover { background: #DBEAFE; }
+
+.purchase-item-delete-btn {
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
+  font-family: 'Nunito', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+.purchase-item-delete-btn:hover {
+  background: #FCA5A5;
+  color: #991B1B;
+}
+
+.purchase-not-found-msg {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #991B1B;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  line-height: 1.35;
+}
 
 /* Admin Sales Computation Badges & Buttons */
 .as-status.created {
@@ -2035,6 +2076,13 @@ body {
   border: 1px solid #FCD34D;
   font-weight: 900;
 }
+.as-status.not-found {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+  font-weight: 900;
+}
+
 .as-compute-btn {
   background: #2563EB;
   color: white;
@@ -2055,6 +2103,47 @@ body {
   box-shadow: 0 2px 8px rgba(22,163,74,0.3);
 }
 .as-compute-btn:hover { opacity: 0.9; }
+
+.as-reject-btn {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.as-reject-btn:hover {
+  background: #FEE2E2;
+  border-color: #DC2626;
+}
+
+.as-delete-btn {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.as-delete-btn:hover {
+  background: #FEE2E2;
+  color: #DC2626;
+  border-color: #FCA5A5;
+}
 
 .as-edit-btn {
   background: #f1f5f9;
