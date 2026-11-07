@@ -68,8 +68,8 @@ export const CATEGORIES: Record<string, CategoryCommission> = {
   },
   toys_sports: {
     key: 'toys_sports',
-    name: 'Brinquedos, Bebês & Games',
-    icon: '🧸',
+    name: 'Games, Brinquedos & Bebês',
+    icon: '🎮',
     mlCommission: 12, // Oficial Mercado Livre Venda Direta: 12%
     shopeeCommission: 3, // Shopee: Brinquedos & Bebês (média 3% -> 1,2% usuário / 1,8% administradora)
     cashbackShare: USER_COMMISSION_SHARE,
@@ -124,19 +124,19 @@ function detectCategory(url: string): CategoryCommission {
     return CATEGORIES.food
   }
 
-  // 2. Acessórios para Veículos (12% Mercado Livre / 4,8% usuário)
+  // 2. Games, Controles, Consoles, Brinquedos & Bebês (12% Mercado Livre / 4,8% usuário)
+  if (/controle|joystick|game|games|jogo|jogos|playstation|ps4|ps5|xbox|nintendo|console|brinquedo|brinquedos|bebe|bebes|infantil|carrinho-bebe|boneca|boneco|lego/i.test(lower)) {
+    return CATEGORIES.toys_sports
+  }
+
+  // 3. Acessórios para Veículos (12% Mercado Livre / 4,8% usuário)
   if (/retrovisor|espelho|carro|carros|moto|motos|automotivo|veiculo|veiculos|farol|farois|lampada|pneu|pneus|oleo|filtro|palheta|amortecedor|freio|escapamento|parachoque|volante|calota|engate|rastreador|alarme|capacete|som-automotivo|central-multimidia|insulfilm|chaveiro-carro|tapete-carro/i.test(lower)) {
     return CATEGORIES.auto
   }
 
-  // 3. Móveis específicos de Casa (12% Mercado Livre / 4,8% usuário) - Verifica antes de moda
+  // 4. Móveis específicos de Casa (12% Mercado Livre / 4,8% usuário) - Verifica antes de moda
   if (/guarda[- ]?roupa|roupeiro|comoda|armario|sapateira|rack|painel|cabeceira|sofa|poltrona|estante|mesa|cadeira|cama|colchao|beliche|berco|aparador|buffet/i.test(lower)) {
     return CATEGORIES.home
-  }
-
-  // 4. Tecnologia e Eletrodomésticos (5% Mercado Livre / 2,0% usuário)
-  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador|celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|gamer|placa|processador|memoria|smart-tv|\btv\b|televisao|monitor|fone|headset|audio|caixa-de-som|console|playstation|ps4|ps5|xbox|nintendo|tablet|ipad|camera|cameras|impressora|roteador|modem|powerbank|carregador|smartwatch/i.test(lower)) {
-    return CATEGORIES.electronics
   }
 
   // 5. Moda, Beleza & Esportes (16% Mercado Livre / 6,4% usuário)
@@ -144,19 +144,19 @@ function detectCategory(url: string): CategoryCommission {
     return CATEGORIES.fashion
   }
 
-  // 6. Livros & Revistas (12% Mercado Livre / 4,8% usuário)
+  // 6. Eletrodomésticos e Tecnologia (5% Mercado Livre / 2,0% usuário - Celulares, Computadores, TVs grandes)
+  if (/geladeira|refrigerador|freezer|lavadora|maquina de lavar|secadora|lava e seca|micro-ondas|microondas|fogao|cooktop|ar-condicionado|ar condicionado|aspirador|ventilador|celular|smartphone|iphone|samsung|xiaomi|motorola|notebook|computador|pc|placa|processador|memoria|smart-tv|\btv\b|televisao|monitor|fone|headset|audio|caixa-de-som|tablet|ipad|camera|cameras|impressora|roteador|modem|powerbank|carregador|smartwatch/i.test(lower)) {
+    return CATEGORIES.electronics
+  }
+
+  // 7. Livros & Revistas (12% Mercado Livre / 4,8% usuário)
   if (/livro|livros|revista|revistas|kam|key account|leitura|kindle|apostila|manga|hqs/i.test(lower)) {
     return CATEGORIES.books
   }
 
-  // 7. Ferramentas & Construção (12% Mercado Livre / 4,8% usuário)
+  // 8. Ferramentas & Construção (12% Mercado Livre / 4,8% usuário)
   if (/ferramenta|ferramentas|furadeira|parafusadeira|serra|tico-tico|martelete|martelo|esmerilhadeira|lixadeira|chave|alicate|trena|nivel|construcao|tinta|torneira|chuveiro|fechadura|escada/i.test(lower)) {
     return CATEGORIES.tools
-  }
-
-  // 8. Brinquedos, Bebês & Games (12% Mercado Livre / 4,8% usuário)
-  if (/brinquedo|brinquedos|bebe|bebes|infantil|carrinho-bebe|boneca|boneco|lego|game|games|jogo/i.test(lower)) {
-    return CATEGORIES.toys_sports
   }
 
   // 9. Casa, Decoração, Cozinha, Joias & Relógios (12% Mercado Livre / 4,8% usuário)
@@ -2685,10 +2685,10 @@ function AdminPage({
                         setComputeExactCommission('')
                       }}
                     >
-                      <option value={16}>Moda/Beleza (16%)</option>
-                      <option value={12}>Casa/Veículos/Outros (12%)</option>
-                      <option value={5}>Tecnologia (5%)</option>
-                      <option value={0}>Alimentos (0%)</option>
+                      <option value={16}>Moda / Beleza / Esportes (16%)</option>
+                      <option value={12}>Games / Casa / Veículos / Variedades (12%)</option>
+                      <option value={5}>Tecnologia (Celulares, PCs, TVs) (5%)</option>
+                      <option value={0}>Alimentos / Bebidas (0%)</option>
                     </select>
                   </div>
                 </div>
